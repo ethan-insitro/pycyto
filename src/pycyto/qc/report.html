@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cyto QC · __TITLE__</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#1b1f24; --muted:#5f6b7a; --line:#e2e6eb; --head:#0f2a44; --head-ink:#fff;
+  --accent:#1f6fd1; --cell:#1f6fd1; --bgbc:#b7bec8; --ok:#1a7f4b; --ok-bg:#e7f5ee; --warn:#9a6700; --warn-bg:#fff5d6;
+  --err:#b42318; --err-bg:#fdecea; --hover:#f0f4fa; --empty:#eef0f3;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111418; --panel:#1a1e24; --ink:#e6e9ee; --muted:#9aa5b1; --line:#2c323b; --head:#0b1826; --head-ink:#e6e9ee;
+    --accent:#5aa2ff; --cell:#5aa2ff; --bgbc:#4a525e; --ok:#4cc38a; --ok-bg:#12291e; --warn:#e3b341; --warn-bg:#2b2410;
+    --err:#ff7b72; --err-bg:#2d1414; --hover:#222833; --empty:#232830; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--head);color:var(--head-ink);padding:14px 24px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;font-weight:600}
+header .sub{opacity:.75;font-size:12.5px}
+nav{background:var(--panel);border-bottom:1px solid var(--line);padding:0 24px;display:flex;gap:4px;position:sticky;top:0;z-index:5}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;font:inherit;color:var(--muted);cursor:pointer}
+nav button.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+main{max-width:1280px;margin:0 auto;padding:20px 24px 60px}
+section.tab{display:none} section.tab.active{display:block}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(460px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card h2{font-size:14px;margin:0 0 10px;font-weight:600}
+.card h2 .hint{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.hero .v{font-size:30px;font-weight:600;letter-spacing:-.5px}
+.hero .l{color:var(--muted);font-size:12.5px;margin-top:2px}
+table.kv{width:100%;border-collapse:collapse}
+table.kv td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+table.kv td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+table.kv tr:last-child td{border-bottom:0}
+.alerts{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.alert{border-radius:6px;padding:10px 14px;border-left:4px solid}
+.alert b{display:block;margin-bottom:2px}
+.alert.error{background:var(--err-bg);border-color:var(--err)} .alert.error b{color:var(--err)}
+.alert.warn{background:var(--warn-bg);border-color:var(--warn)} .alert.warn b{color:var(--warn)}
+.alert.ok{background:var(--ok-bg);border-color:var(--ok)} .alert.ok b{color:var(--ok)}
+select,input[type=search]{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:13px;color:var(--muted)}
+svg{display:block;max-width:100%;height:auto;overflow:visible}
+svg text{fill:var(--muted);font-size:11px}
+svg .axis line,svg .axis path{stroke:var(--line)}
+svg .grid line{stroke:var(--line);stroke-dasharray:2 3}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--panel);padding:6px 9px;border-radius:5px;font-size:12px;z-index:50;display:none;max-width:320px;white-space:pre-line}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:5px}
+.legend i.dash{background:none;border-top:2px dashed var(--warn);height:0}
+.tablewrap{overflow:auto;max-height:640px;border:1px solid var(--line);border-radius:6px}
+table.data{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.data th{position:sticky;top:0;background:var(--panel);text-align:right;padding:7px 9px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap;user-select:none}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.data td{padding:5px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.data tr:hover td{background:var(--hover);cursor:pointer}
+table.data tr.sel td{background:var(--hover);font-weight:600}
+table.data th.sorted::after{content:" ▾"} table.data th.sorted.asc::after{content:" ▴"}
+.flag{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.plates{display:flex;flex-wrap:wrap;gap:18px}
+.plate h3{margin:0 0 4px;font-size:12.5px;font-weight:600}
+.scale{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.scale .bar{width:180px;height:10px;border-radius:3px}
+.muted{color:var(--muted)} .mono{font-family:var(--mono);font-size:12px}
+.btn{font:inherit;font-size:12.5px;padding:4px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+@media (max-width:560px){ .g2{grid-template-columns:1fr} main{padding:16px} header,nav{padding-left:16px;padding-right:16px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>cyto QC report</h1>
+  <span class="sub" id="hdr-title"></span>
+  <span class="sub" id="hdr-meta" style="margin-left:auto"></span>
+</header>
+<nav>
+  <button data-tab="summary" class="active">Summary</button>
+  <button data-tab="probes">Probe barcodes</button>
+  <button data-tab="mapping">Mapping &amp; run</button>
+</nav>
+<main>
+  <!-- ============================== SUMMARY ============================== -->
+  <section class="tab active" id="tab-summary">
+    <div class="alerts" id="alerts"></div>
+    <div class="grid g4" id="hero" style="margin-bottom:16px"></div>
+    <div class="grid g2">
+      <div class="grid" style="align-content:start">
+        <div class="card"><h2>Sequencing</h2><table class="kv" id="kv-seq"></table></div>
+        <div class="card"><h2>Cells</h2><table class="kv" id="kv-cells"></table></div>
+      </div>
+      <div class="card">
+        <h2>Barcode rank plot</h2>
+        <div class="controls">Probe barcode <select id="rank-sel"></select></div>
+        <div id="rank-plot"></div>
+        <div class="legend"><span><i style="background:var(--cell)"></i>Cells</span><span><i style="background:var(--bgbc)"></i>Background</span><span id="rank-leg-bound"><i class="dash"></i>cyto rejection boundary</span></div>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h2>UMIs per cell <span class="hint" id="uh-lab"></span></h2><div id="umi-hist"></div></div>
+      <div class="card"><h2>Genes per cell <span class="hint" id="gh-lab"></span></h2><div id="gene-hist"></div></div>
+    </div>
+  </section>
+
+  <!-- ============================== PROBES ============================== -->
+  <section class="tab" id="tab-probes">
+    <div class="card" style="margin-bottom:16px">
+      <h2>Probe barcode map <span class="hint">click a well for details</span></h2>
+      <div class="controls">Color by <select id="plate-metric"></select></div>
+      <div id="plates"></div>
+    </div>
+    <div class="card" style="margin-bottom:16px" id="detail">
+      <h2 id="detail-title">Probe barcode</h2>
+      <div class="grid g2">
+        <div><table class="kv" id="kv-detail"></table></div>
+        <div><div id="detail-rank"></div>
+          <div class="legend"><span><i style="background:var(--cell)"></i>Cells</span><span><i style="background:var(--bgbc)"></i>Background</span><span><i class="dash"></i>cyto rejection boundary</span></div></div>
+      </div>
+      <div class="grid g2" style="margin-top:12px">
+        <div><h2 style="font-size:13px">UMIs per cell</h2><div id="detail-uh"></div></div>
+        <div><h2 style="font-size:13px">Genes per cell</h2><div id="detail-gh"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>All probe barcodes</h2>
+      <div class="controls">
+        <input type="search" id="tbl-filter" placeholder="Filter…">
+        <label><input type="checkbox" id="tbl-cells"> Only with cells</label>
+        <button class="btn" id="dl-csv" style="margin-left:auto">Download CSV</button>
+      </div>
+      <div class="tablewrap"><table class="data" id="tbl"></table></div>
+    </div>
+  </section>
+
+  <!-- ============================== MAPPING ============================== -->
+  <section class="tab" id="tab-mapping">
+    <div class="grid g2">
+      <div class="card">
+        <h2>Read fate</h2>
+        <div id="fate"></div>
+        <h2 style="margin-top:18px">Unmapped read reasons <span class="hint">% of all reads, a read can fail more than one check</span></h2>
+        <div id="unmapped"></div>
+      </div>
+      <div class="grid" style="align-content:start">
+        <div class="card"><h2>Run</h2><table class="kv" id="kv-run"></table></div>
+        <div class="card"><h2>Reference libraries</h2><div class="tablewrap" style="max-height:none"><table class="data" id="tbl-lib"></table></div></div>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h2>Time by step <span class="hint">summed across probe barcodes</span></h2><div id="timings"></div></div>
+      <div class="card"><h2>Mapping time per input file</h2><div id="runplot"></div></div>
+    </div>
+  </section>
+</main>
+<footer id="foot"></footer>
+<div class="tip" id="tip"></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('data').textContent);
+const S = D.summary, P = D.probes, X = D.extras, BINS = D.log_bins;
+const byProbe = Object.fromEntries(P.map(p => [p.probe, p]));
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const NS = 'http://www.w3.org/2000/svg';
+
+// ---------------- formatting ----------------
+const na = v => v === null || v === undefined || (typeof v === 'number' && !isFinite(v));
+const fInt = v => na(v) ? '—' : Math.round(v).toLocaleString();
+const fPct = (v, d = 1) => na(v) ? '—' : (v * 100).toFixed(d) + '%';
+const fBig = v => { if (na(v)) return '—'; const a = Math.abs(v);
+  return a >= 1e9 ? (v/1e9).toFixed(2)+'B' : a >= 1e6 ? (v/1e6).toFixed(1)+'M' : a >= 1e4 ? (v/1e3).toFixed(1)+'k' : Math.round(v).toLocaleString(); };
+const fDur = s => { if (na(s)) return '—'; s = Math.round(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return h ? `${h}h ${m}m` : m ? `${m}m ${x}s` : `${x}s`; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------------- tooltip ----------------
+const tip = $('#tip');
+const showTip = (e, txt) => { tip.textContent = txt; tip.style.display = 'block';
+  const r = tip.getBoundingClientRect(); let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 10; if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 10;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
+const hideTip = () => tip.style.display = 'none';
+
+// ---------------- svg helpers ----------------
+function el(tag, attrs = {}, parent) { const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+function svgRoot(host, w, h) { host.innerHTML = ''; return el('svg', {viewBox: `0 0 ${w} ${h}`, width: w, height: h}, host); }
+const logTicks = (lo, hi) => { const t = []; for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++) t.push(10 ** e); return t.filter(v => v >= lo * 0.999 && v <= hi * 1.001); };
+const tickLab = v => v >= 1e6 ? (v/1e6) + 'M' : v >= 1e3 ? (v/1e3) + 'k' : String(v);
+function niceTicks(max, n) { const step0 = max / n, p = 10 ** Math.floor(Math.log10(step0)), f = step0 / p;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; const t = []; for (let v = 0; v <= max * 1.001; v += step) t.push(v); return t; }
+
+function logLogAxes(svg, m, W, H, xmax, ymax, xlab, ylab) {
+  const xs = v => m.l + (Math.log10(v) / Math.log10(Math.max(xmax, 10))) * (W - m.l - m.r);
+  const ys = v => H - m.b - (Math.log10(Math.max(v, 1)) / Math.log10(Math.max(ymax, 10))) * (H - m.t - m.b);
+  const g = el('g', {class: 'grid'}, svg), a = el('g', {class: 'axis'}, svg);
+  for (const t of logTicks(1, Math.max(xmax, 10))) { el('line', {x1: xs(t), x2: xs(t), y1: m.t, y2: H - m.b}, g); el('text', {x: xs(t), y: H - m.b + 15, 'text-anchor': 'middle'}, a).textContent = tickLab(t); }
+  for (const t of logTicks(1, Math.max(ymax, 10))) { el('line', {x1: m.l, x2: W - m.r, y1: ys(t), y2: ys(t)}, g); el('text', {x: m.l - 6, y: ys(t) + 4, 'text-anchor': 'end'}, a).textContent = tickLab(t); }
+  el('line', {x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b}, a); el('line', {x1: m.l, x2: m.l, y1: m.t, y2: H - m.b}, a);
+  el('text', {x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle'}, a).textContent = xlab;
+  el('text', {x: 12, y: (m.t + H - m.b) / 2, 'text-anchor': 'middle', transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})`}, a).textContent = ylab;
+  return {xs, ys};
+}
+
+function hex(c) { if (c.startsWith('rgb')) return c.match(/\d+/g).slice(0, 3).map(Number);
+  c = c.replace('#', ''); if (c.length === 3) c = c.split('').map(x => x + x).join(''); return [0, 2, 4].map(i => parseInt(c.substr(i, 2), 16)); }
+const mix = (a, b, t) => { const pa = hex(a), pb = hex(b); return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',')})`; };
+
+// ---------------- barcode rank plot ----------------
+function rankPlot(host, probes) {
+  const W = 560, H = 340, m = {l: 54, r: 14, t: 10, b: 38};
+  const svg = svgRoot(host, W, H);
+  const curves = probes.map(p => ({p, c: (X[p] || {}).curve || []})).filter(o => o.c.length);
+  if (!curves.length) { el('text', {x: W/2, y: H/2, 'text-anchor': 'middle'}, svg).textContent = 'No barcodes'; return; }
+  const xmax = Math.max(...curves.map(o => o.c[o.c.length - 1][0])), ymax = Math.max(...curves.map(o => o.c[0][1]));
+  const {xs, ys} = logLogAxes(svg, m, W, H, xmax, ymax, 'Barcodes (rank)', 'UMI counts');
+  const cCell = css('--cell'), cBg = css('--bgbc'), single = curves.length === 1;
+  for (const {p, c} of curves) {
+    const g = el('g', {}, svg);
+    if (single) {
+      for (let i = 1; i < c.length; i++)
+        el('line', {x1: xs(c[i-1][0]), y1: ys(c[i-1][1]), x2: xs(c[i][0]), y2: ys(c[i][1]), stroke: mix(cBg, cCell, c[i][2]),
+          'stroke-width': 2.5, 'stroke-linecap': 'round'}, g);
+    } else {
+      const has = byProbe[p].cells > 0;
+      const path = el('path', {d: 'M' + c.map(q => `${xs(q[0]).toFixed(1)},${ys(q[1]).toFixed(1)}`).join('L'), fill: 'none',
+        stroke: has ? cCell : cBg, 'stroke-width': has ? 1.2 : 1, 'stroke-opacity': has ? .6 : .35}, g);
+      if (has) svg.appendChild(g); // draw probe barcodes with cells on top
+      path.addEventListener('mousemove', e => { path.setAttribute('stroke-width', 3); path.setAttribute('stroke-opacity', 1); showTip(e, `${p}\n${fInt(byProbe[p].cells)} cells · click for details`); });
+      path.addEventListener('mouseleave', () => { path.setAttribute('stroke-width', has ? 1.2 : 1); path.setAttribute('stroke-opacity', has ? .6 : .35); hideTip(); });
+      path.style.cursor = 'pointer'; path.addEventListener('click', () => { hideTip(); selectProbe(p, true); });
+    }
+  }
+  if (single) {
+    const r = byProbe[curves[0].p], c = curves[0].c;
+    if (!na(r.cyto_reject_umis) && r.cyto_reject_umis <= ymax)
+      el('line', {x1: m.l, x2: W - m.r, y1: ys(r.cyto_reject_umis), y2: ys(r.cyto_reject_umis), stroke: css('--warn'), 'stroke-dasharray': '5 4', 'stroke-width': 1.2}, svg);
+    // hover readout
+    const ov = el('rect', {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent'}, svg);
+    const dot = el('circle', {r: 4, fill: css('--ink'), style: 'display:none'}, svg);
+    ov.addEventListener('mousemove', e => { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+      const lx = pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+      let best = c[0], bd = 1e9; for (const q of c) { const d = Math.abs(xs(q[0]) - lx); if (d < bd) { bd = d; best = q; } }
+      dot.setAttribute('cx', xs(best[0])); dot.setAttribute('cy', ys(best[1])); dot.style.display = '';
+      showTip(e, `Rank ${fInt(best[0])}\n${fInt(best[1])} UMIs\n${fPct(best[2], 0)} cells in segment`); });
+    ov.addEventListener('mouseleave', () => { dot.style.display = 'none'; hideTip(); });
+  }
+}
+
+// ---------------- histogram (log10 bins) ----------------
+function histPlot(host, counts, label) {
+  const W = 560, H = 230, m = {l: 54, r: 14, t: 10, b: 38};
+  const svg = svgRoot(host, W, H);
+  if (!counts) { el('text', {x: W/2, y: H/2, 'text-anchor': 'middle'}, svg).textContent = 'No cells'; return; }
+  let lo = counts.findIndex(v => v > 0), hi = counts.length - 1 - [...counts].reverse().findIndex(v => v > 0);
+  if (lo < 0) { el('text', {x: W/2, y: H/2, 'text-anchor': 'middle'}, svg).textContent = 'No cells'; return; }
+  lo = Math.max(0, lo - 2); hi = Math.min(counts.length - 1, hi + 2);
+  const x0 = BINS[lo], x1 = BINS[hi] + 0.05, ymax = Math.max(...counts);
+  const xs = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r), ys = v => H - m.b - v / ymax * (H - m.t - m.b);
+  const a = el('g', {class: 'axis'}, svg), g = el('g', {class: 'grid'}, svg);
+  for (let e = Math.ceil(x0); e <= Math.floor(x1); e++) { el('line', {x1: xs(e), x2: xs(e), y1: m.t, y2: H - m.b}, g);
+    el('text', {x: xs(e), y: H - m.b + 15, 'text-anchor': 'middle'}, a).textContent = tickLab(10 ** e); }
+  for (const t of niceTicks(ymax, 4)) { el('line', {x1: m.l, x2: W - m.r, y1: ys(t), y2: ys(t)}, g);
+    el('text', {x: m.l - 6, y: ys(t) + 4, 'text-anchor': 'end'}, a).textContent = fBig(t); }
+  el('line', {x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b}, a);
+  el('text', {x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle'}, a).textContent = label;
+  el('text', {x: 12, y: (m.t + H - m.b) / 2, 'text-anchor': 'middle', transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})`}, a).textContent = 'Cells';
+  const bw = xs(BINS[lo] + 0.05) - xs(BINS[lo]);
+  for (let i = lo; i <= hi; i++) { if (!counts[i]) continue;
+    const r = el('rect', {x: xs(BINS[i]) + .5, y: ys(counts[i]), width: Math.max(bw - 1, 1), height: H - m.b - ys(counts[i]), fill: css('--cell'), 'fill-opacity': .85}, svg);
+    r.addEventListener('mousemove', e => showTip(e, `${fInt(10 ** BINS[i])}–${fInt(10 ** (BINS[i] + .05))}\n${fInt(counts[i])} cells`)); r.addEventListener('mouseleave', hideTip); }
+}
+
+// ---------------- horizontal bars ----------------
+function hbars(host, rows, fmt, opts = {}) {
+  const W = 560, rowH = 26, m = {l: opts.left || 170, r: 70, t: 4, b: 4}, H = m.t + m.b + rows.length * rowH;
+  const svg = svgRoot(host, W, H); const max = opts.max || Math.max(...rows.map(r => r.v), 1e-12);
+  rows.forEach((r, i) => { const y = m.t + i * rowH;
+    el('text', {x: m.l - 8, y: y + 17, 'text-anchor': 'end', style: 'fill:var(--ink)'}, svg).textContent = r.k;
+    el('rect', {x: m.l, y: y + 5, width: W - m.l - m.r, height: 16, fill: css('--empty'), rx: 3}, svg);
+    const b = el('rect', {x: m.l, y: y + 5, width: Math.max(0, r.v / max * (W - m.l - m.r)), height: 16, fill: r.c || css('--accent'), rx: 3}, svg);
+    el('text', {x: W - m.r + 6, y: y + 17}, svg).textContent = fmt(r.v);
+    if (r.tip) { b.addEventListener('mousemove', e => showTip(e, r.tip)); b.addEventListener('mouseleave', hideTip); }
+    if (r.click) { b.style.cursor = 'pointer'; b.addEventListener('click', r.click); } });
+}
+
+// ---------------- header, tabs ----------------
+$('#hdr-title').textContent = D.title;
+$('#hdr-meta').textContent = `Cells from cyto filtered h5ad · generated ${D.generated}`;
+$('#foot').textContent = `pycyto ${D.version} · ${S.cyto_outdir}`;
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + b.dataset.tab));
+  try { history.replaceState(null, '', '#' + b.dataset.tab); } catch (e) {} });
+if (location.hash) { const b = document.querySelector(`nav button[data-tab="${location.hash.slice(1)}"]`); if (b) b.click(); }
+
+// ---------------- summary ----------------
+$('#alerts').innerHTML = D.alerts.map(a => `<div class="alert ${a.level}"><b>${esc(a.title)}</b>${esc(a.detail)}</div>`).join('');
+const hero = [
+  [fInt(S.estimated_cells), 'Estimated number of cells' + (S.n_unreliable_probes ? `<br><span style="color:var(--warn)">incl. ${fInt(S.cells_in_unreliable_probes)} from ${S.n_unreliable_probes} probe barcode(s) with unreliable calls</span>` : '')],
+  [fInt(S.mean_reads_per_cell), 'Mean reads per cell'],
+  [fInt(S.median_genes_per_cell), 'Median genes per cell'],
+  [fInt(S.median_umis_per_cell), 'Median UMI counts per cell'],
+];
+$('#hero').innerHTML = hero.map(([v, l]) => `<div class="card hero"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+const kv = (sel, rows) => $(sel).innerHTML = rows.map(([k, v, t]) => `<tr${t ? ` title="${esc(t)}"` : ''}><td>${k}</td><td>${v}</td></tr>`).join('');
+kv('#kv-seq', [
+  ['Number of reads', fInt(S.total_reads)],
+  ['Reads mapped to probes', fPct(S.mapped_reads_frac), 'Reads with a valid cell barcode, probe barcode, UMI and gene probe match'],
+  ['Sequencing saturation', fPct(S.seq_saturation), '1 − UMIs / mapped reads, over all barcodes'],
+  ['UMIs corrected', fPct(S.umi_corrected_frac, 2)],
+  ['Mean mapped reads per cell', fInt(S.mean_mapped_reads_per_cell)],
+]);
+kv('#kv-cells', [
+  ['Probe barcodes with cells', `${fInt(S.probe_barcodes_with_cells)} / ${fInt(S.probe_barcodes_with_reads)} with reads${S.probe_barcodes_in_library ? ` (${fInt(S.probe_barcodes_in_library)} in library)` : ''}`],
+  ['Median cells per probe barcode', fInt(S.cells_median_per_probe), 'Among probe barcodes with cells'],
+  ['Fraction reads in cells', fPct(S.frac_reads_in_cells), 'Mapped reads in cell barcodes / all mapped reads'],
+  ['Mapped reads in probe barcodes without cells', fPct(S.background_probe_read_frac)],
+  ['Total genes detected', na(S.total_genes_detected) ? '—' : `${fInt(S.total_genes_detected)} / ${fInt(S.genes_in_reference)}`],
+]);
+
+const withCells = P.filter(p => p.cells > 0).sort((a, b) => b.cells - a.cells);
+const rs = $('#rank-sel');
+rs.innerHTML = `<option value="__all__">All probe barcodes (overlay)</option>` +
+  P.map(p => `<option value="${esc(p.probe)}">${esc(p.probe)}${p.cells > 0 ? ` · ${fInt(p.cells)} cells` : ''}</option>`).join('');
+rs.value = '__all__';
+function drawSummaryPlots() {
+  const v = rs.value, all = v === '__all__';
+  $('#rank-leg-bound').style.display = all ? 'none' : '';
+  rankPlot($('#rank-plot'), all ? P.map(p => p.probe) : [v]);
+  const ex = all ? D.pooled : X[v];
+  $('#uh-lab').textContent = $('#gh-lab').textContent = all ? 'all cells' : v;
+  histPlot($('#umi-hist'), ex.umi_hist, 'UMIs per cell');
+  histPlot($('#gene-hist'), ex.gene_hist, 'Genes per cell');
+}
+rs.onchange = drawSummaryPlots;
+
+// ---------------- probe barcodes tab ----------------
+const COLS = [
+  ['probe', 'Probe barcode', v => esc(v)],
+  ['cells', 'Cells', fInt],
+  ['mapped_reads', 'Mapped reads', fInt], ['frac_of_mapped_reads', '% of mapped', v => fPct(v, 2)],
+  ['mean_reads_per_cell', 'Mean reads/cell', fInt], ['median_umis_per_cell', 'Median UMIs/cell', fInt],
+  ['median_genes_per_cell', 'Median genes/cell', fInt], ['frac_reads_in_cells', 'Reads in cells', fPct],
+  ['seq_saturation', 'Saturation', fPct], ['total_genes_detected', 'Genes detected', fInt],
+  ['n_barcodes', 'Barcodes', fInt],
+  ['cyto_retain_umis', 'cyto retain ≥', fInt], ['cyto_reject_umis', 'cyto reject <', fInt],
+  ['cyto_status', 'cyto filtering', v => esc(v || '')],
+];
+const PLATE_METRICS = [
+  ['cells', 'Cells', fInt], ['mapped_reads', 'Mapped reads', fBig], ['median_umis_per_cell', 'Median UMIs/cell', fInt],
+  ['median_genes_per_cell', 'Median genes/cell', fInt], ['frac_reads_in_cells', 'Fraction reads in cells', fPct],
+  ['seq_saturation', 'Sequencing saturation', fPct],
+];
+const flagOf = p => {
+  if (p.cells > 0 && !na(p.cyto_retain_umis) && !na(p.cyto_reject_umis) && p.cyto_retain_umis < p.cyto_reject_umis) return 'err';
+  if (p.cells > 0 && (p.median_umis_per_cell < 500 || p.frac_reads_in_cells < .5)) return 'warn';
+  return p.cells > 0 ? 'ok' : null; };
+const flagColor = f => f === 'err' ? css('--err') : f === 'warn' ? css('--warn') : f === 'ok' ? css('--ok') : 'transparent';
+
+const pm = $('#plate-metric');
+pm.innerHTML = PLATE_METRICS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+pm.value = 'cells';
+const viridis = ['#440154','#482878','#3e4989','#31688e','#26828e','#1f9e89','#35b779','#6ece58','#b5de2b','#fde725'];
+const vcol = t => { t = Math.max(0, Math.min(1, t)); const i = t * (viridis.length - 1), a = Math.floor(i), b = Math.min(a + 1, viridis.length - 1); return mix(viridis[a], viridis[b], i - a); };
+// Flex-V2 probe barcodes: <set>-<row><col>, e.g. A-A01 (underscore also accepted)
+const wellRe = /^([A-D])[-_]([A-H])(\d{2})$/;
+const plateable = P.length > 0 && P.every(p => wellRe.test(p.probe));
+let selected = null;
+
+function drawPlates() {
+  const host = $('#plates'), key = pm.value, [, lab, fmt] = PLATE_METRICS.find(x => x[0] === key);
+  const vals = P.map(p => p[key]).filter(v => !na(v) && v > 0);
+  const useLog = ['cells', 'mapped_reads', 'median_umis_per_cell'].includes(key) && vals.length && Math.max(...vals) / Math.max(Math.min(...vals), 1) > 50;
+  const tr = v => useLog ? Math.log10(Math.max(v, 1)) : v;
+  const lo = vals.length ? Math.min(...vals.map(tr)) : 0, hi = vals.length ? Math.max(...vals.map(tr)) : 1;
+  const colOf = v => na(v) || v <= 0 ? null : vcol(hi > lo ? (tr(v) - lo) / (hi - lo) : 1);
+  host.innerHTML = '';
+  if (!plateable) { // Flex-V1 or other naming: bars in probe order
+    const rows = P.map(p => ({k: p.probe, v: p[key] || 0, c: colOf(p[key]) || css('--empty'),
+      tip: `${p.probe}\n${lab}: ${fmt(p[key])}`, click: () => selectProbe(p.probe)}));
+    hbars(host, rows, fmt, {left: 120}); return; }
+  const sets = {};
+  for (const p of P) { const m = p.probe.match(wellRe); (sets[m[1]] ||= {})[m[2] + (+m[3])] = p; }
+  const wrap = document.createElement('div'); wrap.className = 'plates'; host.appendChild(wrap);
+  const nRows = 8, nCols = 12, cs = 22, W = 18 + nCols * cs + 2, H = 16 + nRows * cs + 2;
+  for (const set of Object.keys(sets).sort()) {
+    const d = document.createElement('div'); d.className = 'plate'; wrap.appendChild(d);
+    const h3 = document.createElement('h3'); h3.textContent = `Set ${set}`; d.appendChild(h3);
+    const box = document.createElement('div'); d.appendChild(box);
+    const svg = svgRoot(box, W, H);
+    for (let c = 1; c <= nCols; c++) el('text', {x: 18 + (c - .5) * cs, y: 11, 'text-anchor': 'middle', style: 'font-size:9.5px'}, svg).textContent = c;
+    for (let r = 0; r < nRows; r++) { const R = String.fromCharCode(65 + r);
+      el('text', {x: 8, y: 16 + (r + .5) * cs + 3.5, 'text-anchor': 'middle', style: 'font-size:9.5px'}, svg).textContent = R;
+      for (let c = 1; c <= nCols; c++) { const p = sets[set][R + c]; const x = 18 + (c - 1) * cs, y = 16 + r * cs;
+        const col = p ? colOf(p[key]) : null, isSel = p && selected === p.probe;
+        const rect = el('rect', {x: x + 1, y: y + 1, width: cs - 2, height: cs - 2, rx: 3, fill: col || css('--empty'),
+          stroke: isSel ? css('--ink') : (p ? 'none' : css('--line')), 'stroke-width': isSel ? 2 : 1,
+          'stroke-dasharray': p ? 'none' : '2 2'}, svg);
+        if (p) { const f = flagOf(p);
+          if (f === 'err' || f === 'warn') el('circle', {cx: x + cs - 5, cy: y + 5, r: 2.6, fill: flagColor(f), stroke: css('--panel'), 'stroke-width': 1}, svg);
+          rect.style.cursor = 'pointer';
+          rect.addEventListener('mousemove', e => showTip(e, `${p.probe}\n${lab}: ${fmt(p[key])}\nCells: ${fInt(p.cells)} · reads: ${fBig(p.mapped_reads)}`));
+          rect.addEventListener('mouseleave', hideTip); rect.addEventListener('click', () => selectProbe(p.probe));
+        } else { rect.addEventListener('mousemove', e => showTip(e, `${set}-${R}${String(c).padStart(2, '0')}\nno reads`)); rect.addEventListener('mouseleave', hideTip); }
+      } }
+  }
+  const sc = document.createElement('div'); sc.className = 'scale';
+  const fmtT = v => fmt(useLog ? 10 ** v : v);
+  sc.innerHTML = `<span>${vals.length ? fmtT(lo) : ''}</span><span class="bar" style="background:linear-gradient(90deg,${viridis.join(',')})"></span><span>${vals.length ? fmtT(hi) : ''}</span>${useLog ? '<span>(log scale)</span>' : ''}
+    <span style="margin-left:14px"><span class="flag" style="background:${css('--warn')}"></span>warning <span class="flag" style="background:${css('--err')};margin-left:8px"></span>unreliable cell call</span>
+    <span style="margin-left:14px"><span class="flag" style="background:${css('--empty')};border:1px dashed ${css('--muted')};border-radius:2px"></span>no reads / zero</span>`;
+  host.appendChild(sc);
+}
+pm.onchange = drawPlates;
+
+function selectProbe(probe, jump) {
+  selected = probe; const p = byProbe[probe]; if (!p) return;
+  if (jump) document.querySelector('nav button[data-tab="probes"]').click();
+  $('#detail-title').innerHTML = `Probe barcode <span class="mono">${esc(probe)}</span>`;
+  kv('#kv-detail', [
+    ['Cells', `${fInt(p.cells)}${p.has_filtered_h5ad ? '' : ' <span class="muted">(no filtered h5ad)</span>'}`],
+    ['cyto filtering', esc(p.cyto_status || '—')],
+    ['cyto retain / reject boundary', `${fInt(p.cyto_retain_umis)} / ${fInt(p.cyto_reject_umis)} UMIs`],
+    ['Mapped reads', `${fInt(p.mapped_reads)} <span class="muted">(${fPct(p.frac_of_mapped_reads, 2)} of run)</span>`],
+    ['Mean mapped reads per cell', fInt(p.mean_reads_per_cell)],
+    ['Median UMIs per cell', fInt(p.median_umis_per_cell)],
+    ['Median genes per cell', fInt(p.median_genes_per_cell)],
+    ['Fraction reads in cells', fPct(p.frac_reads_in_cells)],
+    ['Sequencing saturation', fPct(p.seq_saturation)],
+    ['Total genes detected', fInt(p.total_genes_detected)],
+    ['Barcodes observed', fInt(p.n_barcodes)],
+    ['UMIs corrected', fPct(p.umi_corrected_frac, 2)],
+  ]);
+  rankPlot($('#detail-rank'), [probe]);
+  histPlot($('#detail-uh'), X[probe].umi_hist, 'UMIs per cell');
+  histPlot($('#detail-gh'), X[probe].gene_hist, 'Genes per cell');
+  drawPlates(); drawTable();
+}
+
+// table
+let sortKey = 'probe', sortAsc = true;
+const keyOrder = s => { const m = s.match(wellRe); return m ? `${m[1]}|${m[2]}|${m[3]}` : s; };
+function drawTable() {
+  const q = $('#tbl-filter').value.toLowerCase(), only = $('#tbl-cells').checked;
+  const rows = P.filter(p => (!only || p.cells > 0) && (!q || p.probe.toLowerCase().includes(q) || String(p.cyto_status).toLowerCase().includes(q)));
+  rows.sort((a, b) => { let x = a[sortKey], y = b[sortKey];
+    if (sortKey === 'probe') { x = keyOrder(x); y = keyOrder(y); }
+    if (na(x)) return 1; if (na(y)) return -1; return (x < y ? -1 : x > y ? 1 : 0) * (sortAsc ? 1 : -1); });
+  const t = $('#tbl');
+  t.innerHTML = `<thead><tr>${COLS.map(([k, l]) => `<th data-k="${k}" class="${k === sortKey ? 'sorted' + (sortAsc ? ' asc' : '') : ''}">${l}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(p => `<tr data-p="${esc(p.probe)}" class="${p.probe === selected ? 'sel' : ''}">${COLS.map(([k, , f], i) =>
+      `<td>${i === 0 ? `<span class="flag" style="background:${flagColor(flagOf(p))}"></span>` : ''}${f(p[k])}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  t.querySelectorAll('th').forEach(th => th.onclick = () => { const k = th.dataset.k; sortAsc = sortKey === k ? !sortAsc : k === 'probe'; sortKey = k; drawTable(); });
+  t.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => { selectProbe(tr.dataset.p); $('#detail').scrollIntoView({behavior: 'smooth', block: 'start'}); });
+}
+$('#tbl-filter').oninput = drawTable; $('#tbl-cells').onchange = drawTable;
+$('#dl-csv').onclick = () => {
+  const keys = Object.keys(P[0]); const q = v => na(v) ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const csv = [keys.join(','), ...P.map(p => keys.map(k => q(p[k])).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = `${D.title}_probe_metrics.csv`; a.click(); };
+
+// ---------------- mapping tab ----------------
+function drawMapping() {
+  const U = D.unmapped || {}, tot = S.total_reads || 0;
+  hbars($('#fate'), [
+    {k: 'Mapped', v: S.mapped_reads_frac || 0, c: css('--ok'), tip: `${fInt(S.mapped_reads)} reads`},
+    {k: 'Unmapped', v: 1 - (S.mapped_reads_frac || 0), c: css('--err'), tip: `${fInt(tot - (S.mapped_reads || 0))} reads`},
+  ], v => fPct(v), {max: 1, left: 110});
+  const labels = {missing_feature: 'No gene probe match', missing_probe: 'No probe barcode match', failed_umi_qual: 'UMI failed quality',
+    missing_whitelist: 'Cell barcode not in whitelist', umi_truncated: 'UMI truncated'};
+  const rows = Object.keys(U).filter(k => !k.endsWith('_frac')).map(k => ({k: labels[k] || k.replace(/_/g, ' '), v: tot ? U[k] / tot : 0,
+    c: css('--warn'), tip: `${fInt(U[k])} reads\n${fPct(U[k + '_frac'])} of unmapped reads`})).sort((a, b) => b.v - a.v);
+  if (rows.length) hbars($('#unmapped'), rows, v => fPct(v), {max: Math.max(...rows.map(r => r.v), 0.01), left: 190});
+  else $('#unmapped').innerHTML = '<p class="muted">No mapping_map.json found</p>';
+  kv('#kv-run', [
+    ['Workflow', esc(S.workflow || '—')],
+    ['Geometry', `<span class="mono">${esc(S.geometry || '—')}</span>${S.preset ? ` <span class="muted">(${esc(S.preset)})</span>` : ''}`],
+    ['Input files', fInt(S.n_inputs)],
+    ['Started', esc(S.run_start || '—')], ['Finished', esc(S.run_end || '—')],
+    ['Wall time', fDur(S.run_wall_sec)], ['Mapping time', fDur(S.mapping_sec)],
+    ['Log warnings / errors', `${fInt(S.log_warnings)} / ${fInt(S.log_errors)}`],
+    ['Cell whitelist size', fInt(S.whitelist_size)],
+  ]);
+  const L = D.library || [];
+  $('#tbl-lib').innerHTML = `<thead><tr><th>Library</th><th>Elements</th><th>Unique</th><th>Read</th><th>Position</th><th>Window</th></tr></thead><tbody>` +
+    L.map(l => `<tr><td>${esc(l.name)}</td><td>${fInt(l.total_elem)}</td><td>${fInt(l.total_aggr)}</td><td>${esc(l.mate)}</td><td>${fInt(l.position)}</td><td>${fInt(l.window)}${l.exact ? ' (exact)' : ''}</td></tr>`).join('') + '</tbody>';
+  const T = Object.entries(D.timings || {}).sort((a, b) => b[1] - a[1]);
+  if (T.length) hbars($('#timings'), T.map(([k, v]) => ({k, v, tip: fDur(v)})), fDur, {left: 140});
+  else $('#timings').innerHTML = '<p class="muted">No .timings.tsv found</p>';
+  const R = D.run || [];
+  if (R.length) hbars($('#runplot'), R.map(r => ({k: `input ${r.input_id}`, v: r.elapsed_sec, tip: fDur(r.elapsed_sec)})), fDur, {left: 90});
+  else $('#runplot').innerHTML = '<p class="muted">No mapping_run.json found</p>';
+}
+
+// ---------------- init ----------------
+function drawAll() { drawSummaryPlots(); drawPlates(); drawTable(); drawMapping(); if (selected) selectProbe(selected); }
+selected = (withCells[0] || P[0] || {}).probe || null;
+drawAll();
+const mq = matchMedia('(prefers-color-scheme: dark)');
+if (mq.addEventListener) mq.addEventListener('change', drawAll);
+})();
+</script>
+</body>
+</html>

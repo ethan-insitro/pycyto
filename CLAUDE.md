@@ -32,6 +32,26 @@ uv pip install -e .
 - `config.py` - Configuration parsing and barcode expansion DSL
 - `aggregate.py` - Multi-modal sample aggregation logic
 - `convert.py` - Simple MTX to h5ad conversion utilities
+- `qc/` - Cell Ranger-style QC report for one cyto GEX output directory (`pycyto qc`)
+  - `parse.py` - Parsers for cyto metadata (`stats/*.json`, filtering logs, `cyto.log`, `.timings.tsv`, `*.reads.tsv.zst`)
+  - `h5ad.py` - Memory-bounded h5py readers for filtered h5ad files (cell names, genes per cell, genes detected)
+  - `metrics.py` - Per-probe-barcode metrics (`process_probe`) and run-level summary (`summarize`)
+  - `alerts.py` - Alert rules and thresholds (`THRESH`)
+  - `render.py` - JSON payload -> self-contained HTML (`report.html` template, loaded via `importlib.resources`) and CSVs
+  - `__init__.py` - `collect()` (parallel over probe barcodes, `spawn` pool) and `build_report()`
+
+## The `qc` Module
+
+**Purpose**: Summarize the quality of a single cyto GEX run the way Cell Ranger's `web_summary.html` does.
+
+**Cells** are exactly the barcodes in `counts/<probe>.filt.h5ad` (cyto's own cell calls); the report does no cell calling of its own. Probe barcodes without a filtered h5ad have zero cells.
+
+**Key behaviors**:
+
+- Parallelism is per probe barcode (`--threads`), using the same `spawn` context and per-worker logger setup as `aggregate`.
+- Filtered h5ad files are read with h5py directly (only `obs` names and the sparse index/data arrays, streamed in chunks) rather than materializing an AnnData.
+- cyto's filtering logs are text; `parse_filter_log` scrapes the retainment/rejection boundaries. A retainment boundary below the rejection boundary is flagged as an unreliable cell call.
+- The template (`qc/report.html`) receives the whole payload as JSON in a `<script type="application/json">` block; all charts are hand-written SVG in vanilla JS (no CDN dependencies).
 
 ### Key Dependencies
 

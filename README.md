@@ -8,6 +8,7 @@ Python utilities for cyto - format conversion and sample aggregation.
 
 - **convert**: Transform MTX format to h5ad (AnnData)
 - **aggregate**: Combine multi-probe cyto outputs into unified sample-level datasets
+- **qc**: Generate a Cell Ranger-style HTML QC report for a cyto GEX run
 
 ## Installation
 
@@ -91,6 +92,37 @@ output_directory/
     ├── sample_name_assignments.parquet   # Guide assignments per cell
     └── sample_name_reads.parquet         # Read/UMI statistics per barcode
 ```
+
+### qc
+
+Generate a Cell Ranger-style QC report (similar to `web_summary.html`) for a single `cyto workflow gex` output directory.
+
+```bash
+pycyto qc <cyto_outdir>
+```
+
+**Arguments**:
+- `cyto_outdir`: One cyto GEX output directory (the one containing `stats/` and `counts/`)
+
+**Options**:
+- `--output PATH`: HTML report path (default: `<cyto_outdir>/qc_report.html`)
+- `--title TEXT`: Report title (default: name of `cyto_outdir`)
+- `--csv / --no-csv`: Also write `<output>_metrics_summary.csv` and `<output>_probe_metrics.csv` (default: enabled)
+- `--threads INT`: Number of parallel probe-barcode workers (default: -1 for all cores)
+- `--verbose`: Enable detailed logging
+
+**What it reports**:
+- Alerts for low mapping rate, low UMI quality, low fraction of reads in cells, reads in probe barcodes without cells, and unreliable cell calls
+- Headline metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, sequencing saturation, fraction of reads in cells
+- Barcode rank plots and UMI/gene histograms, pooled and per probe barcode
+- A 96-well plate map per probe set for Flex-V2 (`A-A01`…`D-H12`), or a bar chart for other names, plus a sortable per-probe table
+- Read fate (mapped vs. each unmapped reason), reference libraries, and runtimes
+
+**Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells. The report also reads cyto's `stats/filtering/<probe>.log` and flags probe barcodes where cyto's retainment boundary is below its own rejection boundary, which means nearly every barcode was called a cell.
+
+**Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib,run}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`, `stats/filtering/*.log`, `counts/*.filt.h5ad`, `cyto.log`, `.timings.tsv`. Missing metadata files are tolerated.
+
+The HTML report is a single self-contained file and works offline.
 
 ## Configuration Format
 
