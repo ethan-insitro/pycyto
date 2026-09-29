@@ -4,6 +4,10 @@
 // report.html calls main() once the payload and this script are loaded.
 const D = JSON.parse(document.getElementById("data").textContent);
 const S = D.summary;
+const PROBES = D.probes;
+const PLOTS = D.plots;
+const byProbe = Object.fromEntries(PROBES.map((p) => [p.probe, p]));
+const cellsLabel = (p) => (p.cells ? ` · ${fmt.int(p.cells)} cells` : ""); // suffix in the probe barcode picker
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
@@ -48,6 +52,70 @@ function onClick(container, selector, handler) {
 }
 
 // ============================================================================
+// Charts (Observable Plot + d3, loaded from jsDelivr in report.html)
+// ============================================================================
+/** Resolved value of a CSS color variable (Plot needs concrete colors for scales). */
+const color = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const BASE = { style: "background: transparent; color: var(--muted); font-size: 11px; overflow: visible" };
+const message = (text) => Object.assign(document.createElement("p"), { className: "muted", textContent: text });
+
+// Plot loads from a CDN; offline, charts show a note and everything else still works
+const CHARTS_OK = typeof Plot !== "undefined" && typeof d3 !== "undefined";
+
+/** Shows `plot()` in `host`; clicking a pointed-at datum calls onPick(datum). */
+function show(host, plot, onPick = null) {
+  if (!CHARTS_OK) return host.replaceChildren(message("Charts need an internet connection (d3 and Observable Plot load from cdn.jsdelivr.net)."));
+  const figure = plot();
+  if (onPick) figure.addEventListener("click", () => figure.value && onPick(figure.value));
+  host.replaceChildren(figure);
+}
+
+const rankData = (probe) => PLOTS[probe].curve.map(([rank, umis, frac]) => ({ probe, rank, umis, frac }));
+const RANK_AXES = {
+  width: 560, height: 340, marginLeft: 54,
+  x: { type: "log", label: "Barcodes (rank)", tickFormat: "~s", grid: true },
+  y: { type: "log", label: "UMI counts", tickFormat: "~s", grid: true },
+};
+
+/** One probe barcode, shaded by the fraction of cells in each segment. */
+function rankCurve(host, probe) {
+  const data = rankData(probe);
+  if (!data.length) return host.replaceChildren(message("No barcodes"));
+  show(host, () => Plot.plot({
+    ...BASE, ...RANK_AXES,
+    color: { type: "linear", domain: [0, 1], range: [color("--bgbc"), color("--cell")] },
+    marks: [
+      Plot.line(data, { x: "rank", y: "umis", z: null, strokeWidth: 2.5, stroke: "frac" }),
+      Plot.tip(data, Plot.pointerX({
+        x: "rank", y: "umis",
+        title: (d) => `Rank ${fmt.int(d.rank)}\n${fmt.int(d.umis)} UMIs\n${fmt.pct(d.frac, 0)} cells in segment`,
+      })),
+    ],
+  }));
+}
+
+/** All probe barcodes (those with cells on top); click a curve to show that probe barcode on its own. */
+function rankOverlay(host) {
+  const [bg, active] = [PROBES.filter((p) => !p.cells), PROBES.filter((p) => p.cells > 0)]
+    .map((ps) => ps.flatMap((p) => rankData(p.probe)));
+  if (!bg.length && !active.length) return host.replaceChildren(message("No barcodes"));
+  const line = (data, stroke, strokeOpacity) => Plot.line(data, { x: "rank", y: "umis", z: "probe", stroke, strokeOpacity });
+  show(host, () => Plot.plot({
+    ...BASE, ...RANK_AXES,
+    marks: [
+      line(bg, color("--bgbc"), 0.35),
+      line(active, color("--cell"), 0.6),
+      Plot.tip([...bg, ...active], Plot.pointer({
+        x: "rank", y: "umis", title: (d) => `${d.probe}${cellsLabel(byProbe[d.probe])}\nclick to show it on its own`,
+      })),
+    ],
+  }), (d) => {
+    $("#rank-select").value = d.probe;
+    drawSummaryPlots();
+  });
+}
+
+// ============================================================================
 // Header, tabs, summary tab
 // ============================================================================
 function showTab(name) {
@@ -87,6 +155,18 @@ function drawSummary() {
     ["Mapped reads in probe barcodes without cells", fmt.pct(S.background_probe_read_frac)],
     ["Total genes detected", fmt.of(S.total_genes_detected, S.genes_in_reference)],
   ]);
+  setHTML("#rank-select", [
+    html`<option value="">All probe barcodes (overlay)</option>`,
+    ...PROBES.map((p) => html`<option value="${p.probe}">${p.probe}${cellsLabel(p)}</option>`),
+  ]);
+  $("#rank-select").onchange = drawSummaryPlots;
+}
+
+/** Rank plot for the probe barcode picked above it ("" = all probe barcodes). */
+function drawSummaryPlots() {
+  const probe = $("#rank-select").value;
+  if (probe) rankCurve($("#rank-plot"), probe);
+  else rankOverlay($("#rank-plot"));
 }
 
 // ============================================================================
@@ -95,4 +175,8 @@ function drawSummary() {
 function main() {
   drawHeader();
   drawSummary();
+  const drawAll = () => drawSummaryPlots();
+  drawAll();
+  // chart colors are resolved from CSS variables, so redraw when light/dark mode flips
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
 }

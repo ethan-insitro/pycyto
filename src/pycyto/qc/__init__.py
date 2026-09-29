@@ -18,7 +18,7 @@ logger = logging.getLogger("pycyto.qc")
 
 
 def collect(cyto_outdir: str, title: str | None = None) -> dict:
-    """Compute every metric for the report; returns the report payload."""
+    """Compute every metric and plot input for the report; returns the report payload."""
     probes = discover_probes(cyto_outdir)
     meta = load_run_metadata(cyto_outdir)
     workflow = detect_workflow(meta)
@@ -31,6 +31,7 @@ def collect(cyto_outdir: str, title: str | None = None) -> dict:
         "version": version("pycyto"),
         "summary": summarize(results, meta, cyto_outdir),
         "probes": [r["rec"] for r in results],
+        "plots": {r["rec"]["probe"]: r["plots"] for r in results},
     }
 
 

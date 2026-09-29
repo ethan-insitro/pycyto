@@ -112,12 +112,13 @@ pycyto qc <cyto_outdir>
 
 **What it reports**:
 - Sequencing metrics: reads, fraction mapped, sequencing saturation, UMI correction
+- Barcode rank plots, pooled and per probe barcode
 
 Cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, and fraction of reads in cells. **Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
 
 **Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`, `counts/*.filt.h5ad`. The directory must be from a completed cyto run.
 
-The HTML report is a single self-contained file.
+The HTML report is a single file. Charts load d3 and Observable Plot from cdn.jsdelivr.net, so viewing them needs an internet connection; offline, the tables and metrics still render.
 
 ## Configuration Format
 

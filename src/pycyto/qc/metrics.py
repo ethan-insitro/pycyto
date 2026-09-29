@@ -42,8 +42,23 @@ def read_counts(path: str, chunk_rows: int = 10_000) -> tuple[pl.DataFrame, np.n
     return pl.DataFrame({"barcode": barcodes, "n_features": n_features}), totals, names
 
 
+def rank_curve(umis_desc: np.ndarray, is_cell_desc: np.ndarray, n_points: int = 300) -> list:
+    """Barcode-rank curve downsampled to ~n_points log-spaced ranks.
+
+    Each point is ``[rank, umis, fraction of barcodes in the segment that are cells]``.
+    """
+    n = len(umis_desc)
+    if n == 0:
+        return []
+    ranks = np.unique(np.clip(np.round(np.logspace(0, np.log10(n), n_points)), 1, n)).astype(int)
+    prev = np.concatenate([[0], ranks[:-1]])
+    csum = np.concatenate([[0], np.cumsum(is_cell_desc)])
+    frac = (csum[ranks] - csum[prev]) / (ranks - prev)
+    return [[int(r), int(u), round(float(f), 3)] for r, u, f in zip(ranks, umis_desc[ranks - 1], frac)]
+
+
 def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
-    """Metrics and per-cell arrays for one probe barcode.
+    """Metrics, plot data and per-cell arrays for one probe barcode.
 
     Cells are exactly the barcodes in cyto's ``counts/<probe>.filt.h5ad``; probe barcodes
     without that file have no cells. ``rec`` is the row shown in the report's probe table;
@@ -64,7 +79,7 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
             logger.warning(f"[{probe}] - {missing} filtered barcodes missing from reads stats")
     else:
         df = df.with_columns(n_genes=pl.lit(None, dtype=pl.Int64))
-    df = df.with_columns(is_cell=pl.col("n_genes").is_not_null())
+    df = df.with_columns(is_cell=pl.col("n_genes").is_not_null()).sort("n_umis", descending=True)
     in_cells = df.filter("is_cell")
     cell_umis = in_cells["n_umis"].to_numpy()
     cell_genes = in_cells["n_genes"].to_numpy()
@@ -75,6 +90,9 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
             "umis": df["n_umis"].sum(),
             "cells": in_cells.height,
             "reads_in_cells": in_cells["n_reads"].sum(),
+        },
+        "plots": {
+            "curve": rank_curve(df["n_umis"].to_numpy(), df["is_cell"].to_numpy()),
         },
         "cell_umis": cell_umis,
         "cell_genes": cell_genes,
