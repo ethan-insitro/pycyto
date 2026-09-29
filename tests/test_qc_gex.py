@@ -22,6 +22,10 @@ class TestCollect:
             rec = by_probe[probe]
             for key, value in expected.items():
                 assert rec[key] == value, (probe, key)
+        assert {p: r["flag"] for p, r in by_probe.items()} == {
+            "A-A01": "ok", "A-A02": "ok", "B-H12": None, "C-D07": "warn"
+        }
+        assert by_probe["B-H12"]["has_filtered_h5ad"] is False
         assert by_probe["B-H12"]["median_umis_per_cell"] is None
 
     def test_summary(self, payload, cyto_dir):

@@ -21,6 +21,7 @@ class TestCrispr:
         for probe, expected in truth.items():
             for key, value in expected.items():
                 assert by_probe[probe][key] == value, (probe, key)
+        assert all(r["flag"] is None for r in payload["probes"])
 
     def test_summary(self, payload, crispr_dir):
         _, _, totals, _ = crispr_dir

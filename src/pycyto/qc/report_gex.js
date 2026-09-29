@@ -30,4 +30,29 @@ const WORKFLOW = {
     { title: "UMIs per cell", draw: (host, probe) => histogram(host, (probe ? PLOTS[probe] : D.pooled).umi_hist, "UMIs per cell") },
     { title: "Genes per cell", draw: (host, probe) => histogram(host, (probe ? PLOTS[probe] : D.pooled).gene_hist, "Genes per cell") },
   ],
+
+  plateMetrics: {
+    cells: ["Cells", fmt.int, true],
+    mapped_reads: ["Mapped reads", fmt.big, true],
+    median_umis_per_cell: ["Median UMIs/cell", fmt.int, true],
+    median_genes_per_cell: ["Median genes/cell", fmt.int, false],
+    frac_reads_in_cells: ["Fraction reads in cells", fmt.pct, false],
+    seq_saturation: ["Sequencing saturation", fmt.pct, false],
+  },
+
+  columns: [
+    ["probe", "Probe barcode", fmt.text],
+    ["cells", "Cells", fmt.int],
+    ["mapped_reads", "Mapped reads", fmt.int],
+    ["frac_of_mapped_reads", "% of mapped", fmt.pct2],
+    ["mean_reads_per_cell", "Mean reads/cell", fmt.int],
+    ["median_umis_per_cell", "Median UMIs/cell", fmt.int],
+    ["median_genes_per_cell", "Median genes/cell", fmt.int],
+    ["frac_reads_in_cells", "Reads in cells", fmt.pct],
+    ["seq_saturation", "Saturation", fmt.pct],
+    ["total_genes_detected", "Genes detected", fmt.int],
+    ["n_barcodes", "Barcodes", fmt.int],
+  ],
+
+  tableToggle: { label: "Only with cells", test: (p) => p.cells > 0 },
 };

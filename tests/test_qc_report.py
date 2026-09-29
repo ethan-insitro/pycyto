@@ -10,6 +10,8 @@ from typer.testing import CliRunner
 from pycyto.__main__ import app
 from pycyto.qc import build_report
 
+from .qc_helpers import PROBES
+
 
 class TestBuildReport:
     def test_writes_html(self, cyto_dir, tmp_path):
@@ -35,7 +37,9 @@ class TestBuildReport:
         root, _ = cyto_dir
         build_report(root, output=str(tmp_path / "report.html"))
         summary = pl.read_csv(str(tmp_path / "report_metrics_summary.csv"))
+        probes = pl.read_csv(str(tmp_path / "report_probe_metrics.csv"))
         assert summary.height == 1
+        assert probes.height == len(PROBES)
 
     def test_cli(self, cyto_dir, tmp_path):
         root, _ = cyto_dir

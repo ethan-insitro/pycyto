@@ -38,9 +38,14 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
     n_cells, mapped = in_cells.height, rec["mapped_reads"]
     rec |= {
         "cells": n_cells,
+        "has_filtered_h5ad": detected is not None,
         "reads_in_cells": in_cells["n_reads"].sum(),
         "frac_reads_in_cells": _div(in_cells["n_reads"].sum(), mapped),
+        "frac_umis_in_cells": _div(in_cells["n_umis"].sum(), rec["umis"]),
+        "mean_reads_per_cell": _div(mapped, n_cells),
         "median_umis_per_cell": in_cells["n_umis"].median(),
+        "median_genes_per_cell": in_cells["n_genes"].median(),
+        "total_genes_detected": int(detected.sum()) if detected is not None else None,
     }
     cell_umis = in_cells["n_umis"].to_numpy()
     cell_genes = in_cells["n_genes"].to_numpy()

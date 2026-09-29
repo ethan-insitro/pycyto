@@ -14,6 +14,7 @@
 </header>
 <nav>
   <button data-tab="summary" class="active">Summary</button>
+  <button data-tab="probes">Probe barcodes</button>
 </nav>
 
 <main>
@@ -34,6 +35,22 @@
     </div>
     <!-- workflow-specific cards (WORKFLOW.summaryPanels) -->
     <div class="grid g2 gap" id="summary-panels"></div>
+  </section>
+
+  <section class="tab" id="tab-probes">
+    <div class="card">
+      <h2>Probe barcode map</h2>
+      <div class="controls">Color by <select id="plate-metric"></select></div>
+      <div id="plates"></div>
+    </div>
+    <div class="card gap">
+      <h2>All probe barcodes</h2>
+      <div class="controls">
+        <input type="search" id="table-filter" placeholder="Filter…">
+        <label><input type="checkbox" id="table-toggle"> <span id="table-toggle-label"></span></label>
+      </div>
+      <div class="tablewrap"><table class="data" id="probe-table"></table></div>
+    </div>
   </section>
 </main>
 

@@ -39,4 +39,25 @@ const WORKFLOW = {
         </table></div><p class="muted">Across all probe barcodes.</p>`),
     },
   ],
+
+  plateMetrics: {
+    umis: ["Guide UMIs", fmt.big, true],
+    mapped_reads: ["Mapped reads", fmt.big, true],
+    guides_detected: ["Guides detected", fmt.int, false],
+    n_barcodes: ["Barcodes", fmt.int, true],
+    seq_saturation: ["Sequencing saturation", fmt.pct, false],
+  },
+
+  columns: [
+    ["probe", "Probe barcode", fmt.text],
+    ["mapped_reads", "Mapped reads", fmt.int],
+    ["frac_of_mapped_reads", "% of mapped", fmt.pct2],
+    ["umis", "Guide UMIs", fmt.int],
+    ["guides_detected", "Guides detected", fmt.int],
+    ["n_barcodes", "Barcodes", fmt.int],
+    ["seq_saturation", "Saturation", fmt.pct],
+    ["umi_corrected_frac", "UMIs corrected", fmt.pct2],
+  ],
+
+  tableToggle: { label: "Only with guides detected", test: (p) => p.guides_detected > 0 },
 };
