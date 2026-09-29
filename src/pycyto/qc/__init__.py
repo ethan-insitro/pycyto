@@ -8,7 +8,7 @@ import logging
 import os
 from importlib.metadata import version
 
-from .metrics import process_probe, summarize
+from .metrics import LOG_BINS, pooled_plots, process_probe, summarize
 from .parse import detect_workflow, discover_probes, load_run_metadata
 from .render import render_html, write_csvs
 
@@ -32,6 +32,8 @@ def collect(cyto_outdir: str, title: str | None = None) -> dict:
         "summary": summarize(results, meta, cyto_outdir),
         "probes": [r["rec"] for r in results],
         "plots": {r["rec"]["probe"]: r["plots"] for r in results},
+        "pooled": pooled_plots(results),
+        "log_bins": LOG_BINS.tolist(),
     }
 
 
