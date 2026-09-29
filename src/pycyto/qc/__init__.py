@@ -19,7 +19,7 @@ from . import gex
 from .alerts import build_alerts
 from .metrics import LOG_BINS
 from .parse import detect_workflow, discover_probes, load_run_metadata
-from .render import write_csvs
+from .render import render_html, write_csvs
 
 __all__ = ["build_report", "collect"]
 
@@ -82,16 +82,23 @@ def collect(
 
 
 def build_report(
-    cyto_outdir: str, output: str | None = None, threads: int = -1, verbose: bool = False
+    cyto_outdir: str,
+    output: str | None = None,
+    title: str | None = None,
+    write_csv: bool = True,
+    threads: int = -1,
+    verbose: bool = False,
 ) -> str:
-    """Write the run-level metrics to ``<output>_metrics_summary.csv`` and log any alerts.
-
-    ``output`` is a path stem (default ``<cyto_outdir>/qc_report``); returns it.
-    """
-    payload = collect(cyto_outdir, threads=threads, verbose=verbose)
-    stem = output or os.path.join(cyto_outdir, "qc_report")
-    logger.info(f"Wrote metrics: {', '.join(write_csvs(payload, stem))}")
+    """Write the HTML report (and optionally the metric CSVs). Returns the HTML path."""
+    payload = collect(cyto_outdir, threads=threads, verbose=verbose, title=title)
+    output = output or os.path.join(cyto_outdir, "qc_report.html")
+    with open(output, "w", encoding="utf-8") as fh:
+        fh.write(render_html(payload))
+    logger.info(f"Wrote QC report: {output}")
+    if write_csv:
+        paths = write_csvs(payload, os.path.splitext(output)[0])
+        logger.info(f"Wrote metrics: {', '.join(paths)}")
     for alert in payload["alerts"]:
         if alert["level"] != "ok":
             logger.warning(f"{alert['title']}: {alert['detail']}")
-    return stem
+    return output

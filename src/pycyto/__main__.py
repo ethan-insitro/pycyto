@@ -134,20 +134,37 @@ def qc(
     ],
     output: Annotated[
         str | None,
-        typer.Option(help="Output path stem [default: <cyto_outdir>/qc_report]"),
+        typer.Option(help="Output HTML path [default: <cyto_outdir>/qc_report.html]"),
     ] = None,
+    title: Annotated[
+        str | None,
+        typer.Option(help="Report title [default: name of cyto_outdir]"),
+    ] = None,
+    csv: Annotated[
+        bool,
+        typer.Option(
+            help="Also write the run-level metrics to <output>_metrics_summary.csv"
+        ),
+    ] = True,
     verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,
     threads: Annotated[
         int, typer.Option(help="Number of parallel threads to use [-1: all available]")
     ] = -1,
 ):
-    """Compute Cell Ranger-style QC metrics for a cyto GEX run"""
+    """Generate a Cell Ranger-style QC report for a cyto GEX run"""
     _setup_logging(verbose=verbose)
 
     from .qc import build_report
 
     try:
-        build_report(cyto_outdir, output=output, threads=threads, verbose=verbose)
+        build_report(
+            cyto_outdir,
+            output=output,
+            title=title,
+            write_csv=csv,
+            threads=threads,
+            verbose=verbose,
+        )
     except (FileNotFoundError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
