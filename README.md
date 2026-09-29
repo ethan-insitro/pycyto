@@ -114,7 +114,7 @@ pycyto qc <cyto_outdir>
 - Sequencing metrics: reads, fraction mapped, sequencing saturation, UMI correction
 - Barcode rank plots, pooled and per probe barcode
 
-Cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, and fraction of reads in cells. **Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
+Cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, fraction of reads in cells, and UMI/gene histograms. **Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
 
 **Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`, `counts/*.filt.h5ad`. The directory must be from a completed cyto run.
 

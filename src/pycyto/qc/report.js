@@ -6,6 +6,7 @@ const D = JSON.parse(document.getElementById("data").textContent);
 const S = D.summary;
 const PROBES = D.probes;
 const PLOTS = D.plots;
+const BINS = D.log_bins; // log10 bin edges, width 0.05
 const byProbe = Object.fromEntries(PROBES.map((p) => [p.probe, p]));
 const cellsLabel = (p) => (p.cells ? ` · ${fmt.int(p.cells)} cells` : ""); // suffix in the probe barcode picker
 const $ = (sel) => document.querySelector(sel);
@@ -115,6 +116,24 @@ function rankOverlay(host) {
   });
 }
 
+/** Histogram of cells over the shared log10 bins. */
+function histogram(host, counts, title) {
+  const bins = (counts ?? []).flatMap((n, i) => (n ? [{ lo: 10 ** BINS[i], hi: 10 ** (BINS[i] + 0.05), n }] : []));
+  if (!bins.length) return host.replaceChildren(message("No cells"));
+  show(host, () => Plot.plot({
+    ...BASE, width: 560, height: 230, marginLeft: 54,
+    x: { type: "log", label: title, tickFormat: "~s" },
+    y: { label: "Cells", tickFormat: "~s", grid: true },
+    marks: [
+      Plot.rectY(bins, {
+        x1: "lo", x2: "hi", y: "n", fill: color("--cell"), insetLeft: 0.5, tip: true,
+        title: (d) => `${fmt.int(d.lo)}–${fmt.int(d.hi)}\n${fmt.int(d.n)} cells`,
+      }),
+      Plot.ruleY([0]),
+    ],
+  }));
+}
+
 // ============================================================================
 // Header, tabs, summary tab
 // ============================================================================
@@ -162,11 +181,15 @@ function drawSummary() {
   $("#rank-select").onchange = drawSummaryPlots;
 }
 
-/** Rank plot for the probe barcode picked above it ("" = all probe barcodes). */
+/** Rank plot and histograms for the probe barcode picked above the rank plot ("" = all). */
 function drawSummaryPlots() {
   const probe = $("#rank-select").value;
   if (probe) rankCurve($("#rank-plot"), probe);
   else rankOverlay($("#rank-plot"));
+  $$("#summary-panels .hint").forEach((node) => (node.textContent = probe || "all probe barcodes"));
+  const hists = probe ? PLOTS[probe] : D.pooled;
+  histogram($("#umi-hist"), hists.umi_hist, "UMIs per cell");
+  histogram($("#gene-hist"), hists.gene_hist, "Genes per cell");
 }
 
 // ============================================================================

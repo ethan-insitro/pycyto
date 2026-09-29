@@ -13,6 +13,9 @@ from .parse import load_json, read_barcode_stats
 
 logger = logging.getLogger("pycyto.qc")
 
+# log10 bin edges (width 0.05) for the histograms embedded in the report
+LOG_BINS = np.round(np.arange(0, 6.05, 0.05), 2)
+
 
 def _div(a, b) -> float | None:
     return a / b if a is not None and b else None
@@ -57,6 +60,13 @@ def rank_curve(umis_desc: np.ndarray, is_cell_desc: np.ndarray, n_points: int = 
     return [[int(r), int(u), round(float(f), 3)] for r, u, f in zip(ranks, umis_desc[ranks - 1], frac)]
 
 
+def log_hist(values: np.ndarray) -> list[int] | None:
+    if len(values) == 0:
+        return None
+    counts, _ = np.histogram(np.log10(np.maximum(values, 1)), bins=np.append(LOG_BINS, 6.05))
+    return counts.tolist()
+
+
 def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
     """Metrics, plot data and per-cell arrays for one probe barcode.
 
@@ -93,6 +103,8 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
         },
         "plots": {
             "curve": rank_curve(df["n_umis"].to_numpy(), df["is_cell"].to_numpy()),
+            "umi_hist": log_hist(cell_umis),
+            "gene_hist": log_hist(cell_genes),
         },
         "cell_umis": cell_umis,
         "cell_genes": cell_genes,
@@ -138,4 +150,12 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
         "frac_reads_in_cells": _div(probes["reads_in_cells"].sum(), mapped),
         "background_probe_read_frac": _div(probes.filter(pl.col("cells") == 0)["mapped_reads"].sum(), mapped),
         "cells_median_per_probe": called["cells"].median(),
+    }
+
+
+def pooled_plots(results: list[dict]) -> dict[str, Any]:
+    """Run-wide histograms: UMIs and genes per cell across all probe barcodes."""
+    return {
+        "umi_hist": log_hist(np.concatenate([r["cell_umis"] for r in results])),
+        "gene_hist": log_hist(np.concatenate([r["cell_genes"] for r in results])),
     }
