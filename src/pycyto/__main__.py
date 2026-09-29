@@ -130,7 +130,7 @@ def aggregate(
 @app.command()
 def qc(
     cyto_outdir: Annotated[
-        str, typer.Argument(help="Path to a single `cyto workflow gex` output directory")
+        str, typer.Argument(help="Path to a single `cyto workflow gex` or `crispr` output directory")
     ],
     output: Annotated[
         str | None,
@@ -148,7 +148,7 @@ def qc(
     ] = True,
     verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,
 ):
-    """Generate a Cell Ranger-style QC report for a cyto GEX run"""
+    """Generate a Cell Ranger-style QC report for a cyto GEX or CRISPR run"""
     _setup_logging(verbose=verbose)
 
     from .qc import build_report

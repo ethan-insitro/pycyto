@@ -24,7 +24,7 @@ class TestBuildReport:
         for placeholder in ("__DATA__", "__TITLE__", "/*__CSS__*/", "/*__JS__*/"):
             assert placeholder not in html
         assert "--cell:" in html and "function rankCurve" in html  # CSS and JS inlined
-        assert "Estimated number of cells" in html  # the GEX cell metrics are drawn
+        assert "Estimated number of cells" in html  # the GEX workflow config, not CRISPR's
         assert data["workflow"] == "gex"
         # chart libraries come from a pinned, integrity-checked CDN URL
         for lib in ("d3@7.9.0/dist/d3.min.js", "plot@0.6.17/dist/plot.umd.min.js"):

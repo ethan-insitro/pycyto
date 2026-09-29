@@ -1,6 +1,8 @@
-"""Cell Ranger-style QC reports for a single cyto output directory (``cyto workflow gex``).
+"""Cell Ranger-style QC reports for a single ``cyto workflow gex`` or ``crispr`` output directory.
 
-Entry point: :func:`build_report` (CLI: ``pycyto qc``).
+Entry point: :func:`build_report` (CLI: ``pycyto qc``). The workflow is detected from the
+output directory; each workflow module (:mod:`.gex`, :mod:`.crispr`) provides ``FEATURE``,
+``process_probe``, ``summarize`` and ``pooled_plots``, and everything else is shared.
 """
 
 import datetime as dt
@@ -8,8 +10,11 @@ import logging
 import os
 from importlib.metadata import version
 
+import polars as pl
+
+from . import crispr, gex
 from .alerts import build_alerts
-from .metrics import LOG_BINS, pooled_plots, process_probe, summarize
+from .metrics import LOG_BINS
 from .parse import detect_workflow, discover_probes, load_run_metadata
 from .render import render_html, write_csvs
 
@@ -17,26 +22,31 @@ __all__ = ["build_report", "collect"]
 
 logger = logging.getLogger("pycyto.qc")
 
+WORKFLOWS = {"gex": gex, "crispr": crispr}
+
 
 def collect(cyto_outdir: str, title: str | None = None) -> dict:
     """Compute every metric and plot input for the report; returns the report payload."""
     probes = discover_probes(cyto_outdir)
     meta = load_run_metadata(cyto_outdir)
     workflow = detect_workflow(meta)
+    wf = WORKFLOWS[workflow]
     logger.info(f"Computing QC for a cyto {workflow} run with {len(probes)} probe barcodes")
-    results = [process_probe(cyto_outdir, probe) for probe in probes]
-    recs = [r["rec"] for r in results]
-    summary = summarize(results, meta, cyto_outdir)
+    results = [wf.process_probe(cyto_outdir, probe) for probe in probes]
+
+    table = pl.DataFrame([r["rec"] for r in results], infer_schema_length=None)
+
+    summary = wf.summarize(results, meta, cyto_outdir)
     return {
         "workflow": workflow,
         "title": title or os.path.basename(os.path.abspath(cyto_outdir)),
         "generated": dt.datetime.now().isoformat(sep=" ", timespec="seconds"),
         "version": version("pycyto"),
         "summary": summary,
-        "alerts": build_alerts(summary, recs),
-        "probes": recs,
+        "alerts": build_alerts(workflow, summary, table),
+        "probes": table.to_dicts(),
         "plots": {r["rec"]["probe"]: r["plots"] for r in results},
-        "pooled": pooled_plots(results),
+        "pooled": wf.pooled_plots(results),
         "log_bins": LOG_BINS.tolist(),
     }
 

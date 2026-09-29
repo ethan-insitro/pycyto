@@ -23,19 +23,17 @@
     <div class="grid g2 gap">
       <div class="grid">
         <div class="card"><h2>Sequencing</h2><table class="kv" id="kv-sequencing"></table></div>
-        <div class="card"><h2>Cells</h2><table class="kv" id="kv-cells"></table></div>
+        <div class="card"><h2 id="kv-workflow-title"></h2><table class="kv" id="kv-workflow"></table></div>
       </div>
       <div class="card">
         <h2>Barcode rank plot</h2>
         <div class="controls">Probe barcode <select id="rank-select"></select></div>
         <div id="rank-plot"></div>
-        <div class="legend"><span><i class="swatch cell"></i>Cells</span><span><i class="swatch bg"></i>Background</span></div>
+        <div class="legend rank-legend"></div>
       </div>
     </div>
-    <div class="grid g2 gap" id="summary-panels">
-      <div class="card"><h2>UMIs per cell <span class="hint"></span></h2><div id="umi-hist"></div></div>
-      <div class="card"><h2>Genes per cell <span class="hint"></span></h2><div id="gene-hist"></div></div>
-    </div>
+    <!-- workflow-specific cards (WORKFLOW.summaryPanels) -->
+    <div class="grid g2 gap" id="summary-panels"></div>
   </section>
 </main>
 
@@ -48,6 +46,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/dist/plot.umd.min.js"
         integrity="sha256-Q1gIZGd0B3fdeI1rJ6lc69uu/dUMcwowYBFwc71xNMs=" crossorigin="anonymous"></script>
 <script>/*__JS__*/</script>
+<script>/*__WORKFLOW_JS__*/</script>
 <script>main();</script>
 </body>
 </html>

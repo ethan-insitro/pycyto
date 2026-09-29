@@ -52,13 +52,14 @@ def load_run_metadata(cyto_outdir: str) -> dict[str, Any]:
 
 
 def detect_workflow(meta: dict[str, Any]) -> str:
-    """The cyto workflow (``gex``), from the feature library named in ``mapping_lib.json``."""
+    """``gex`` or ``crispr``, from the feature library named in ``mapping_lib.json``."""
     libraries = {d["name"] for d in meta["library"]}
-    if "gex" in libraries:
-        return "gex"
+    for workflow in ("gex", "crispr"):
+        if workflow in libraries:
+            return workflow
     raise ValueError(
         f"Can't tell which cyto workflow produced this directory (libraries: {sorted(libraries)}); "
-        "expected a `cyto workflow gex` run"
+        "expected a `cyto workflow gex` or `cyto workflow crispr` run"
     )
 
 
