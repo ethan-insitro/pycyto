@@ -18,6 +18,15 @@ from ..config import FLEX_V1_BARCODES, FLEX_V2_BARCODES
 _FLEX_V1_RANK = {bc: i for i, bc in enumerate(sorted(FLEX_V1_BARCODES))}
 _FLEX_V2_RANK = {bc: i for i, bc in enumerate(FLEX_V2_BARCODES)}
 
+# unmapped-read categories in ``stats/mapping_map.json`` -> human-readable labels
+UNMAPPED_LABELS = {
+    "missing_feature": "No gene probe match",
+    "missing_probe": "No probe barcode match",
+    "failed_umi_qual": "UMI failed quality",
+    "missing_whitelist": "Cell barcode not in whitelist",
+    "umi_truncated": "UMI truncated",
+}
+
 
 def load_json(path: str) -> Any:
     with open(path) as fh:

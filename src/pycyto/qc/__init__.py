@@ -8,6 +8,7 @@ import logging
 import os
 from importlib.metadata import version
 
+from .alerts import build_alerts
 from .metrics import LOG_BINS, pooled_plots, process_probe, summarize
 from .parse import detect_workflow, discover_probes, load_run_metadata
 from .render import render_html, write_csvs
@@ -24,13 +25,16 @@ def collect(cyto_outdir: str, title: str | None = None) -> dict:
     workflow = detect_workflow(meta)
     logger.info(f"Computing QC for a cyto {workflow} run with {len(probes)} probe barcodes")
     results = [process_probe(cyto_outdir, probe) for probe in probes]
+    recs = [r["rec"] for r in results]
+    summary = summarize(results, meta, cyto_outdir)
     return {
         "workflow": workflow,
         "title": title or os.path.basename(os.path.abspath(cyto_outdir)),
         "generated": dt.datetime.now().isoformat(sep=" ", timespec="seconds"),
         "version": version("pycyto"),
-        "summary": summarize(results, meta, cyto_outdir),
-        "probes": [r["rec"] for r in results],
+        "summary": summary,
+        "alerts": build_alerts(summary, recs),
+        "probes": recs,
         "plots": {r["rec"]["probe"]: r["plots"] for r in results},
         "pooled": pooled_plots(results),
         "log_bins": LOG_BINS.tolist(),
@@ -52,4 +56,7 @@ def build_report(
     if write_csv:
         paths = write_csvs(payload, os.path.splitext(output)[0])
         logger.info(f"Wrote metrics: {', '.join(paths)}")
+    for alert in payload["alerts"]:
+        if alert["level"] != "ok":
+            logger.warning(f"{alert['title']}: {alert['detail']}")
     return output

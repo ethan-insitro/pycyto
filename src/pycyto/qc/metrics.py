@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
-from .parse import load_json, read_barcode_stats
+from .parse import UNMAPPED_LABELS, load_json, read_barcode_stats
 
 logger = logging.getLogger("pycyto.qc")
 
@@ -67,6 +67,23 @@ def log_hist(values: np.ndarray) -> list[int] | None:
     return counts.tolist()
 
 
+def unmapped_reasons(mapping: dict) -> list[dict[str, Any]]:
+    """Unmapped-read categories, largest first. A read can fail more than one check."""
+    unmapped = mapping["unmapped"]
+    rows = [
+        {
+            "reason": key,
+            "label": UNMAPPED_LABELS.get(key, key.replace("_", " ")),
+            "reads": reads,
+            "frac_of_reads": _div(reads, mapping["total_reads"]),
+            "frac_of_unmapped": unmapped[f"{key}_frac"],
+        }
+        for key, reads in unmapped.items()
+        if not key.endswith("_frac")
+    ]
+    return sorted(rows, key=lambda r: -r["reads"])
+
+
 def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
     """Metrics, plot data and per-cell arrays for one probe barcode.
 
@@ -93,13 +110,16 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
     in_cells = df.filter("is_cell")
     cell_umis = in_cells["n_umis"].to_numpy()
     cell_genes = in_cells["n_genes"].to_numpy()
+    mapped = df["n_reads"].sum()
     return {
         "rec": {
             "probe": probe,
-            "mapped_reads": df["n_reads"].sum(),
+            "mapped_reads": mapped,
             "umis": df["n_umis"].sum(),
             "cells": in_cells.height,
             "reads_in_cells": in_cells["n_reads"].sum(),
+            "frac_reads_in_cells": _div(in_cells["n_reads"].sum(), mapped),
+            "median_umis_per_cell": in_cells["n_umis"].median(),
         },
         "plots": {
             "curve": rank_curve(df["n_umis"].to_numpy(), df["is_cell"].to_numpy()),
@@ -122,6 +142,7 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
     total_umis = sum(r["umi_counts"][1] for r in results)
     mapping = meta["mapping"]
     lib = {d["name"]: d for d in meta["library"]}
+    reasons = unmapped_reasons(mapping)
 
     probes = pl.DataFrame(recs, infer_schema_length=None)
     called = probes.filter(pl.col("cells") > 0)
@@ -134,6 +155,8 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
         "total_reads": mapping["total_reads"],
         "mapped_reads": mapping["mapped_reads"],
         "mapped_reads_frac": mapping["mapped_reads_frac"],
+        "top_unmapped_reason": reasons[0]["label"] if reasons else None,
+        "failed_umi_qual_of_total": _div(mapping["unmapped"]["failed_umi_qual"], mapping["total_reads"]),
         "probe_barcodes_in_library": lib["probe"]["total_elem"],
         "probe_barcodes_with_reads": len(recs),
         "seq_saturation": 1 - umis / mapped if mapped else None,
@@ -141,6 +164,7 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
         # cells (cyto's filtered h5ad)
         "estimated_cells": n_cells,
         "probe_barcodes_with_cells": called.height,
+        "n_probes_without_cells": probes.height - called.height,
         "mean_reads_per_cell": _div(mapping["total_reads"], n_cells),
         "mean_mapped_reads_per_cell": _div(mapping["mapped_reads"], n_cells),
         "median_umis_per_cell": float(np.median(cell_umis)) if len(cell_umis) else None,
