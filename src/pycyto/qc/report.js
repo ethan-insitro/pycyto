@@ -14,6 +14,7 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
 /**
+ * @typedef {[string, (p: object) => any]} DetailRow  label, value for one probe barcode
  * @typedef {[string, string, (v: any) => string]} Column  key, header, format
  * @typedef {{title: string, draw: (host: Element, probe: string) => void}} Panel
  *   probe is "" when the summary shows all probe barcodes
@@ -26,8 +27,11 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
  * @property {object} rankLegend                html`` legend under rank plots
  * @property {(p: object) => boolean} isActive  probe barcodes drawn on top in the overlay
  * @property {(p: object) => string} probeLabel suffix in the probe barcode picker
+ * @property {string} sortKey                   probe barcode shown first (largest value)
  * @property {Panel[]} summaryPanels
+ * @property {Panel[]} detailPanels
  * @property {object} plateMetrics              key -> [label, format, log scale when wide]
+ * @property {DetailRow[]} detailRows
  * @property {Column[]} columns
  * @property {{label: string, test: (p: object) => boolean}} tableToggle
  */
@@ -64,6 +68,7 @@ const html = (strings, ...values) => raw(strings.reduce((out, s, i) => out + ren
 const setHTML = (target, content) => ((typeof target === "string" ? $(target) : target).innerHTML = render(content));
 
 const kvTable = (sel, rows) => setHTML(sel, rows.map(([k, v, title]) => html`<tr title="${title ?? ""}"><td>${k}</td><td>${v}</td></tr>`));
+const muted = (text) => html` <span class="muted">${text}</span>`;
 
 /** Calls handler(match) when a click inside `container` lands on (a child of) `selector`. */
 function onClick(container, selector, handler) {
@@ -73,10 +78,11 @@ function onClick(container, selector, handler) {
   });
 }
 
-/** One titled card per panel inside `container`; returns the chart hosts. */
-function panelHosts(container, panels) {
-  setHTML(container, panels.map((p) => html`<div class="card">
-    <h2>${p.title} <span class="hint"></span></h2><div class="panel"></div></div>`));
+/** One titled block per panel inside `container` (as cards if `card`); returns the chart hosts. */
+function panelHosts(container, panels, card) {
+  const heading = raw(card ? "h2" : "h3");
+  setHTML(container, panels.map((p) => html`<div class="${card ? "card" : ""}">
+    <${heading}>${p.title} <span class="hint"></span></${heading}><div class="panel"></div></div>`));
   return [...$(container).querySelectorAll(".panel")];
 }
 
@@ -124,7 +130,7 @@ function rankCurve(host, probe) {
   }));
 }
 
-/** All probe barcodes; click a curve to show that probe barcode on its own. */
+/** All probe barcodes; click a curve to open that probe barcode's details. */
 function rankOverlay(host) {
   const [bg, active] = [PROBES.filter((p) => !WORKFLOW.isActive(p)), PROBES.filter(WORKFLOW.isActive)]
     .map((ps) => ps.flatMap((p) => rankData(p.probe)));
@@ -136,13 +142,10 @@ function rankOverlay(host) {
       line(bg, color("--bgbc"), 0.35),
       line(active, color("--cell"), 0.6),
       Plot.tip([...bg, ...active], Plot.pointer({
-        x: "rank", y: "umis", title: (d) => `${d.probe}${WORKFLOW.probeLabel(byProbe[d.probe])}\nclick to show it on its own`,
+        x: "rank", y: "umis", title: (d) => `${d.probe}${WORKFLOW.probeLabel(byProbe[d.probe])}\nclick for details`,
       })),
     ],
-  }), (d) => {
-    $("#rank-select").value = d.probe;
-    drawSummaryPlots();
-  });
+  }), (d) => selectProbe(d.probe, true));
 }
 
 /** Histogram over the shared log10 bins; `unit` names what is counted (cells, guides). */
@@ -163,8 +166,8 @@ function histogram(host, counts, title, unit = "cells") {
   }));
 }
 
-/** Horizontal bars with a value label. rows: {label, value, color?, tip?}. */
-function hbars(host, rows, { format, max, labelWidth = 170 }) {
+/** Horizontal bars with a value label. rows: {label, value, color?, tip?, probe?}. */
+function hbars(host, rows, { format, max, labelWidth = 170, onPick = null }) {
   const top = max ?? Math.max(...rows.map((r) => r.value), 1e-12);
   const at = { y: "label", insetTop: 5, insetBottom: 5 };
   show(host, () => Plot.plot({
@@ -177,7 +180,7 @@ function hbars(host, rows, { format, max, labelWidth = 170 }) {
       Plot.barX(rows, { ...at, x: "value", fill: (r) => r.color ?? color("--accent"), rx: 3, tip: true, title: (r) => r.tip ?? format(r.value) }),
       Plot.text(rows, { y: "label", x: () => top, text: (r) => format(r.value), textAnchor: "start", dx: 6, fill: "currentColor" }),
     ],
-  }));
+  }), onPick);
 }
 
 // ============================================================================
@@ -223,7 +226,7 @@ function drawSummaryPlots() {
   const probe = $("#rank-select").value;
   if (probe) rankCurve($("#rank-plot"), probe);
   else rankOverlay($("#rank-plot"));
-  panelHosts("#summary-panels", WORKFLOW.summaryPanels).forEach((host, i) => {
+  panelHosts("#summary-panels", WORKFLOW.summaryPanels, true).forEach((host, i) => {
     host.parentElement.querySelector(".hint").textContent = probe || "all probe barcodes";
     WORKFLOW.summaryPanels[i].draw(host, probe);
   });
@@ -232,6 +235,14 @@ function drawSummaryPlots() {
 // ============================================================================
 // Probe barcodes tab
 // ============================================================================
+let selected = null; // probe barcode shown in the detail panel
+
+/** Moves the `.selected` highlight in the table without redrawing it. */
+function highlightSelected() {
+  $$("#probe-table .selected").forEach((n) => n.classList.remove("selected"));
+  if (selected) $(`#probe-table [data-probe="${CSS.escape(selected)}"]`)?.classList.add("selected");
+}
+
 // Flex-V2 probe barcodes are <set>-<row><col>, e.g. A-A01 (underscore also accepted)
 const WELL = /^([A-D])[-_]([A-H])(\d{2})$/;
 const isPlate = PROBES.length > 0 && PROBES.every((p) => WELL.test(p.probe));
@@ -243,11 +254,12 @@ function drawPlates() {
   const values = PROBES.map(value).filter((v) => v !== null);
   const type = logCapable && values.length && d3.max(values) / Math.max(d3.min(values), 1) > 50 ? "log" : "linear";
   const tip = (p) => `${p.probe}\n${label}: ${format(p[key])}\nMapped reads: ${fmt.big(p.mapped_reads)}`;
+  const pick = (d) => d.probe && selectProbe(d.probe);
 
   if (!isPlate) { // e.g. Flex-V1 (BC001…): one bar per probe barcode
     const scale = (type === "log" ? d3.scaleSequentialLog : d3.scaleSequential)(d3.interpolateViridis).domain(d3.extent(values));
-    hbars(host, PROBES.map((p) => ({ label: p.probe, value: value(p) ?? 0, color: value(p) === null ? null : scale(value(p)), tip: tip(p) })),
-      { format, labelWidth: 120 });
+    hbars(host, PROBES.map((p) => ({ label: p.probe, value: value(p) ?? 0, color: value(p) === null ? null : scale(value(p)), tip: tip(p), probe: p.probe })),
+      { format, labelWidth: 120, onPick: pick });
     return;
   }
 
@@ -269,11 +281,25 @@ function drawPlates() {
       Plot.cell(grid, { ...cell, fill: color("--empty") }),
       Plot.cell(wells.filter((w) => w.value !== null), { ...cell, fill: "value" }),
       flagDot("warn"),
+      Plot.cell(wells.filter((w) => w.probe === selected), { ...cell, fill: "none", stroke: color("--ink"), strokeWidth: 2 }),
       Plot.tip(wells, Plot.pointer({ x: "col", y: "row", fx: "set", title: tip })),
     ],
-  }));
+  }), pick);
   const flags = PROBES.some((p) => p.flag === "warn") ? html`<span><i class="flag warn"></i>warning</span>` : "";
   host.insertAdjacentHTML("beforeend", render(html`<div class="legend">${flags}<span><i class="swatch empty"></i>no reads / zero</span></div>`));
+}
+
+function selectProbe(probe, switchTab = false) {
+  const p = byProbe[probe];
+  if (!p) return;
+  selected = probe;
+  if (switchTab) showTab("probes");
+  setHTML("#detail-title", html`Probe barcode <span class="mono">${probe}</span>`);
+  kvTable("#kv-detail", WORKFLOW.detailRows.map(([label, value]) => [label, value(p)]));
+  rankCurve($("#detail-rank"), probe);
+  panelHosts("#detail-panels", WORKFLOW.detailPanels, false).forEach((host, i) => WORKFLOW.detailPanels[i].draw(host, probe));
+  drawPlates();
+  highlightSelected();
 }
 
 const sort = { key: "probe", asc: true };
@@ -289,8 +315,9 @@ function drawTable() {
   const sortClass = (key) => (key === sort.key ? `sorted ${sort.asc ? "asc" : ""}` : "");
   setHTML("#probe-table", html`
     <thead><tr>${WORKFLOW.columns.map(([key, label]) => html`<th data-key="${key}" class="${sortClass(key)}">${label}</th>`)}</tr></thead>
-    <tbody>${rows.map((p) => html`<tr>${WORKFLOW.columns.map(([key, , format], i) =>
+    <tbody>${rows.map((p) => html`<tr data-probe="${p.probe}">${WORKFLOW.columns.map(([key, , format], i) =>
       html`<td>${i === 0 && p.flag ? html`<i class="flag ${p.flag}"></i>` : ""}${format(p[key])}</td>`)}</tr>`)}</tbody>`);
+  highlightSelected();
 }
 
 function setUpProbesTab() {
@@ -305,6 +332,10 @@ function setUpProbesTab() {
     sort.key = th.dataset.key;
     drawTable();
   });
+  onClick($("#probe-table"), "tbody tr", (tr) => {
+    selectProbe(tr.dataset.probe);
+    $("#detail").scrollIntoView({ behavior: "smooth" });
+  });
 }
 
 // ============================================================================
@@ -314,10 +345,12 @@ function main() {
   drawHeader();
   drawSummary();
   setUpProbesTab();
+  selected = [...PROBES].sort((a, b) => (b[WORKFLOW.sortKey] ?? 0) - (a[WORKFLOW.sortKey] ?? 0))[0]?.probe ?? null;
   const drawAll = () => {
     drawSummaryPlots();
     drawTable();
-    drawPlates();
+    if (selected) selectProbe(selected);
+    else drawPlates();
   };
   drawAll();
   // chart colors are resolved from CSS variables, so redraw when light/dark mode flips
