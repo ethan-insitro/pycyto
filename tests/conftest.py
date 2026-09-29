@@ -50,6 +50,7 @@ def cyto_dir(tmp_path_factory):
             write_h5ad(str(root / "counts" / f"{probe}.filt.h5ad"), barcodes[cells], counts[cells], probe, fmt)
             truth[probe] = {
                 "cells": len(cells),
+                "median_umis_per_cell": float(np.median(umis[cells])),
                 "reads_in_cells": int(reads[cells].sum()),
                 "mapped_reads": int(reads.sum()),
             }

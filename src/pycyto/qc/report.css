@@ -52,6 +52,13 @@ h2 .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 
 .hero .value { font-size: 30px; font-weight: 600; letter-spacing: -.5px; }
 .hero .label { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 
+.alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.alert { border-radius: 6px; padding: 10px 14px; border-left: 4px solid; }
+.alert b { display: block; margin-bottom: 2px; }
+.alert.error { background: var(--err-bg); border-color: var(--err); } .alert.error b { color: var(--err); }
+.alert.warn { background: var(--warn-bg); border-color: var(--warn); } .alert.warn b { color: var(--warn); }
+.alert.ok { background: var(--ok-bg); border-color: var(--ok); } .alert.ok b { color: var(--ok); }
+
 table.kv { width: 100%; border-collapse: collapse; }
 table.kv td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.kv td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }

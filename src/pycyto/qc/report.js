@@ -152,6 +152,7 @@ function drawHeader() {
 }
 
 function drawSummary() {
+  setHTML("#alerts", D.alerts.map((a) => html`<div class="alert ${a.level}"><b>${a.title}</b>${a.detail}</div>`));
   setHTML("#hero", [
     [fmt.int(S.estimated_cells), "Estimated number of cells"],
     [fmt.int(S.mean_reads_per_cell), "Mean reads per cell"],
