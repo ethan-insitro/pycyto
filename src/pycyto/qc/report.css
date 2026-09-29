@@ -41,6 +41,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; min-width: 0; }
 .card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
 h2 .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
 .muted { color: var(--muted); }
 .mono { font-family: var(--mono); font-size: 12px; }
 @media (max-width: 560px) {
@@ -70,7 +71,9 @@ table.data { border-collapse: collapse; width: 100%; font-size: 12.5px; font-var
 table.data th, table.data td { padding: 5px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
 table.data th { position: sticky; top: 0; background: var(--panel); border-bottom-width: 2px; cursor: pointer; user-select: none; }
 table.data th:first-child, table.data td:first-child { text-align: left; }
-table.data tbody tr:hover td { background: var(--hover); }
+table.data.clickable tbody tr { cursor: pointer; }
+table.data tbody tr:hover td, table.data tr.selected td { background: var(--hover); }
+table.data tr.selected td { font-weight: 600; }
 table.data th.sorted::after { content: " ▾"; }
 table.data th.sorted.asc::after { content: " ▴"; }
 

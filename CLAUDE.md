@@ -58,7 +58,7 @@ uv pip install -e .
 - Per-probe metrics come from joining the reads stats (`barcode, n_umis, n_reads`) with the filtered cells (`barcode, n_genes`) in polars; a barcode is a cell iff it joined.
 - The template (`qc/report.html`) receives the whole payload as JSON in a `<script type="application/json">` block; charts are drawn with Observable Plot (`qc/report.js`). d3 and Plot load from jsDelivr via pinned, SRI-checked `<script>` tags in `report.html`, so charts need an internet connection; offline, charts show a note and the tables/metrics still render. To upgrade, bump the versions there and take the new sha256 hashes from `https://data.jsdelivr.com/v1/packages/npm/<pkg>@<version>?structure=flat`. Chart colors are read from the CSS variables in `qc/report.css` (`color()` in `report.js`) and charts redraw when light/dark mode changes.
 - `report.js` only draws: per-probe status flags (`alerts.PROBE_FLAG`) and all metrics are computed in Python, so rules live in one place and are covered by pytest.
-- In `report.js`, HTML is built with the escaping `html` tagged template (wrap trusted markup in `raw()`), chart tooltips/clicks use Plot's pointer (`plot.value`), and table-header/nav clicks are delegated from containers via `data-key` / `data-tab`.
+- In `report.js`, HTML is built with the escaping `html` tagged template (wrap trusted markup in `raw()`), chart tooltips/clicks use Plot's pointer (`plot.value`), and table/nav clicks are delegated from containers via `data-probe` / `data-key`.
 
 ### Key Dependencies
 

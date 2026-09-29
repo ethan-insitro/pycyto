@@ -25,6 +25,7 @@ const WORKFLOW = {
   rankLegend: html`<span><i class="swatch cell"></i>Guide UMIs per barcode</span>`,
   isActive: () => true,
   probeLabel: (p) => ` · ${fmt.big(p.umis)} UMIs`,
+  sortKey: "umis",
 
   summaryPanels: [
     {
@@ -39,6 +40,9 @@ const WORKFLOW = {
         </table></div><p class="muted">Across all probe barcodes.</p>`),
     },
   ],
+  detailPanels: [
+    { title: "UMIs per guide", draw: (host, probe) => histogram(host, PLOTS[probe].guide_hist, "UMIs per guide", "guides") },
+  ],
 
   plateMetrics: {
     umis: ["Guide UMIs", fmt.big, true],
@@ -47,6 +51,15 @@ const WORKFLOW = {
     n_barcodes: ["Barcodes", fmt.int, true],
     seq_saturation: ["Sequencing saturation", fmt.pct, false],
   },
+
+  detailRows: [
+    ["Mapped reads", (p) => html`${fmt.int(p.mapped_reads)}${muted(`(${fmt.pct2(p.frac_of_mapped_reads)} of run)`)}`],
+    ["Guide UMIs", (p) => fmt.int(p.umis)],
+    ["Guides detected", (p) => fmt.int(p.guides_detected)],
+    ["Barcodes observed", (p) => fmt.int(p.n_barcodes)],
+    ["Sequencing saturation", (p) => fmt.pct(p.seq_saturation)],
+    ["UMIs corrected", (p) => fmt.pct2(p.umi_corrected_frac)],
+  ],
 
   columns: [
     ["probe", "Probe barcode", fmt.text],

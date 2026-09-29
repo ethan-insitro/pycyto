@@ -25,10 +25,15 @@ const WORKFLOW = {
   rankLegend: html`<span><i class="swatch cell"></i>Cells</span><span><i class="swatch bg"></i>Background</span>`,
   isActive: (p) => p.cells > 0,
   probeLabel: (p) => (p.cells ? ` · ${fmt.int(p.cells)} cells` : ""),
+  sortKey: "cells",
 
   summaryPanels: [
     { title: "UMIs per cell", draw: (host, probe) => histogram(host, (probe ? PLOTS[probe] : D.pooled).umi_hist, "UMIs per cell") },
     { title: "Genes per cell", draw: (host, probe) => histogram(host, (probe ? PLOTS[probe] : D.pooled).gene_hist, "Genes per cell") },
+  ],
+  detailPanels: [
+    { title: "UMIs per cell", draw: (host, probe) => histogram(host, PLOTS[probe].umi_hist, "UMIs per cell") },
+    { title: "Genes per cell", draw: (host, probe) => histogram(host, PLOTS[probe].gene_hist, "Genes per cell") },
   ],
 
   plateMetrics: {
@@ -39,6 +44,19 @@ const WORKFLOW = {
     frac_reads_in_cells: ["Fraction reads in cells", fmt.pct, false],
     seq_saturation: ["Sequencing saturation", fmt.pct, false],
   },
+
+  detailRows: [
+    ["Cells", (p) => html`${fmt.int(p.cells)}${p.has_filtered_h5ad ? "" : muted("(no filtered h5ad)")}`],
+    ["Mapped reads", (p) => html`${fmt.int(p.mapped_reads)}${muted(`(${fmt.pct2(p.frac_of_mapped_reads)} of run)`)}`],
+    ["Mean mapped reads per cell", (p) => fmt.int(p.mean_reads_per_cell)],
+    ["Median UMIs per cell", (p) => fmt.int(p.median_umis_per_cell)],
+    ["Median genes per cell", (p) => fmt.int(p.median_genes_per_cell)],
+    ["Fraction reads in cells", (p) => fmt.pct(p.frac_reads_in_cells)],
+    ["Sequencing saturation", (p) => fmt.pct(p.seq_saturation)],
+    ["Total genes detected", (p) => fmt.int(p.total_genes_detected)],
+    ["Barcodes observed", (p) => fmt.int(p.n_barcodes)],
+    ["UMIs corrected", (p) => fmt.pct2(p.umi_corrected_frac)],
+  ],
 
   columns: [
     ["probe", "Probe barcode", fmt.text],

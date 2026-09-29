@@ -39,9 +39,18 @@
 
   <section class="tab" id="tab-probes">
     <div class="card">
-      <h2>Probe barcode map</h2>
+      <h2>Probe barcode map <span class="hint">click a probe barcode for details</span></h2>
       <div class="controls">Color by <select id="plate-metric"></select></div>
       <div id="plates"></div>
+    </div>
+    <div class="card gap" id="detail">
+      <h2 id="detail-title"></h2>
+      <div class="grid g2">
+        <table class="kv" id="kv-detail"></table>
+        <div><div id="detail-rank"></div><div class="legend rank-legend"></div></div>
+      </div>
+      <!-- workflow-specific panels (WORKFLOW.detailPanels) -->
+      <div class="grid g2 gap" id="detail-panels"></div>
     </div>
     <div class="card gap">
       <h2>All probe barcodes</h2>
@@ -49,7 +58,7 @@
         <input type="search" id="table-filter" placeholder="Filter…">
         <label><input type="checkbox" id="table-toggle"> <span id="table-toggle-label"></span></label>
       </div>
-      <div class="tablewrap"><table class="data" id="probe-table"></table></div>
+      <div class="tablewrap"><table class="data clickable" id="probe-table"></table></div>
     </div>
   </section>
 </main>
