@@ -107,13 +107,14 @@ pycyto qc <cyto_outdir>
 **Options**:
 - `--output PATH`: HTML report path (default: `<cyto_outdir>/qc_report.html`)
 - `--title TEXT`: Report title (default: name of `cyto_outdir`)
-- `--csv / --no-csv`: Also write the run-level metrics to `<output>_metrics_summary.csv` (default: enabled)
+- `--csv / --no-csv`: Also write `<output>_metrics_summary.csv` and `<output>_probe_metrics.csv` (default: enabled)
 - `--verbose`: Enable detailed logging
 
 **What it reports (both workflows)**:
 - Alerts for low mapping rate and low UMI quality, plus workflow-specific alerts
 - Sequencing metrics: reads, fraction mapped, sequencing saturation, UMI correction
 - Barcode rank plots, pooled and per probe barcode
+- A 96-well plate map per probe set for Flex-V2 (`A-A01`…`D-H12`), or a bar chart for other names, plus a sortable per-probe table
 
 **GEX runs** add cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, fraction of reads in cells, and UMI/gene histograms. **Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
 

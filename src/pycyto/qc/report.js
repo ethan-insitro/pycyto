@@ -2,7 +2,7 @@
 
 // Shared report engine for every cyto workflow. All numbers, flags and labels are computed
 // in Python (pycyto.qc); this file only draws them. What differs between workflows (headline
-// metrics, extra panels) lives in report_<workflow>.js, which defines
+// metrics, table columns, extra panels) lives in report_<workflow>.js, which defines
 // `WORKFLOW` (see the WorkflowConfig typedef below); report.html then calls main().
 const D = JSON.parse(document.getElementById("data").textContent);
 const S = D.summary;
@@ -14,6 +14,7 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
 /**
+ * @typedef {[string, string, (v: any) => string]} Column  key, header, format
  * @typedef {{title: string, draw: (host: Element, probe: string) => void}} Panel
  *   probe is "" when the summary shows all probe barcodes
  * @typedef {object} WorkflowConfig
@@ -26,6 +27,9 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
  * @property {(p: object) => boolean} isActive  probe barcodes drawn on top in the overlay
  * @property {(p: object) => string} probeLabel suffix in the probe barcode picker
  * @property {Panel[]} summaryPanels
+ * @property {object} plateMetrics              key -> [label, format, log scale when wide]
+ * @property {Column[]} columns
+ * @property {{label: string, test: (p: object) => boolean}} tableToggle
  */
 
 // ============================================================================
@@ -44,6 +48,7 @@ const fmt = {
     if (Math.abs(v) >= 1e4) return `${(v / 1e3).toFixed(1)}k`;
     return fmt.int(v);
   },
+  text: (v) => (isNA(v) ? "—" : v),
   of: (n, total) => (isNA(n) ? "—" : `${fmt.int(n)} / ${fmt.int(total)}`),
 };
 
@@ -158,6 +163,23 @@ function histogram(host, counts, title, unit = "cells") {
   }));
 }
 
+/** Horizontal bars with a value label. rows: {label, value, color?, tip?}. */
+function hbars(host, rows, { format, max, labelWidth = 170 }) {
+  const top = max ?? Math.max(...rows.map((r) => r.value), 1e-12);
+  const at = { y: "label", insetTop: 5, insetBottom: 5 };
+  show(host, () => Plot.plot({
+    ...BASE, width: 560, height: rows.length * 26 + 10, marginTop: 5, marginBottom: 5, marginLeft: labelWidth, marginRight: 70,
+    x: { domain: [0, top], axis: null },
+    y: { domain: rows.map((r) => r.label), label: null, tickSize: 0 },
+    color: { type: "identity" },
+    marks: [
+      Plot.barX(rows, { ...at, x: () => top, fill: color("--empty"), rx: 3 }),
+      Plot.barX(rows, { ...at, x: "value", fill: (r) => r.color ?? color("--accent"), rx: 3, tip: true, title: (r) => r.tip ?? format(r.value) }),
+      Plot.text(rows, { y: "label", x: () => top, text: (r) => format(r.value), textAnchor: "start", dx: 6, fill: "currentColor" }),
+    ],
+  }));
+}
+
 // ============================================================================
 // Header, tabs, summary tab
 // ============================================================================
@@ -208,12 +230,95 @@ function drawSummaryPlots() {
 }
 
 // ============================================================================
+// Probe barcodes tab
+// ============================================================================
+// Flex-V2 probe barcodes are <set>-<row><col>, e.g. A-A01 (underscore also accepted)
+const WELL = /^([A-D])[-_]([A-H])(\d{2})$/;
+const isPlate = PROBES.length > 0 && PROBES.every((p) => WELL.test(p.probe));
+
+function drawPlates() {
+  const host = $("#plates"), key = $("#plate-metric").value, [label, format, logCapable] = WORKFLOW.plateMetrics[key];
+  if (!CHARTS_OK) return show(host, null); // the color scales below need d3
+  const value = (p) => (isNA(p[key]) || p[key] <= 0 ? null : p[key]); // zero/missing: shown as empty
+  const values = PROBES.map(value).filter((v) => v !== null);
+  const type = logCapable && values.length && d3.max(values) / Math.max(d3.min(values), 1) > 50 ? "log" : "linear";
+  const tip = (p) => `${p.probe}\n${label}: ${format(p[key])}\nMapped reads: ${fmt.big(p.mapped_reads)}`;
+
+  if (!isPlate) { // e.g. Flex-V1 (BC001…): one bar per probe barcode
+    const scale = (type === "log" ? d3.scaleSequentialLog : d3.scaleSequential)(d3.interpolateViridis).domain(d3.extent(values));
+    hbars(host, PROBES.map((p) => ({ label: p.probe, value: value(p) ?? 0, color: value(p) === null ? null : scale(value(p)), tip: tip(p) })),
+      { format, labelWidth: 120 });
+    return;
+  }
+
+  const wells = PROBES.map((p) => {
+    const [, set, row, col] = p.probe.match(WELL);
+    return { ...p, set, row, col: +col, value: value(p) };
+  });
+  const sets = [...new Set(wells.map((w) => w.set))].sort();
+  const grid = sets.flatMap((set) => [..."ABCDEFGH"].flatMap((row) => d3.range(1, 13).map((col) => ({ set, row, col }))));
+  const cell = { x: "col", y: "row", fx: "set", inset: 1, rx: 3 };
+  const flagDot = (flag) => Plot.dot(wells.filter((w) => w.flag === flag), { x: "col", y: "row", fx: "set", r: 2.6, dx: 7, dy: -7, fill: color(`--${flag}`) });
+  show(host, () => Plot.plot({
+    ...BASE, width: 300 * sets.length, height: 250, marginLeft: 24,
+    x: { domain: d3.range(1, 13), label: null, tickSize: 0 },
+    y: { domain: [..."ABCDEFGH"], label: null, tickSize: 0 },
+    fx: { label: null, tickFormat: (s) => `Set ${s}` },
+    color: { type, scheme: "viridis", label, legend: values.length > 0, tickFormat: format },
+    marks: [
+      Plot.cell(grid, { ...cell, fill: color("--empty") }),
+      Plot.cell(wells.filter((w) => w.value !== null), { ...cell, fill: "value" }),
+      flagDot("warn"),
+      Plot.tip(wells, Plot.pointer({ x: "col", y: "row", fx: "set", title: tip })),
+    ],
+  }));
+  const flags = PROBES.some((p) => p.flag === "warn") ? html`<span><i class="flag warn"></i>warning</span>` : "";
+  host.insertAdjacentHTML("beforeend", render(html`<div class="legend">${flags}<span><i class="swatch empty"></i>no reads / zero</span></div>`));
+}
+
+const sort = { key: "probe", asc: true };
+function drawTable() {
+  const query = $("#table-filter").value.toLowerCase(), only = $("#table-toggle").checked;
+  const rows = PROBES
+    .filter((p) => (!only || WORKFLOW.tableToggle.test(p)) && p.probe.toLowerCase().includes(query))
+    .sort((a, b) => { // missing values last; probe names sort naturally for Flex-V1 and V2
+      const [x, y] = [a[sort.key], b[sort.key]];
+      if (isNA(x) || isNA(y)) return isNA(x) - isNA(y);
+      return (x < y ? -1 : x > y ? 1 : 0) * (sort.asc ? 1 : -1);
+    });
+  const sortClass = (key) => (key === sort.key ? `sorted ${sort.asc ? "asc" : ""}` : "");
+  setHTML("#probe-table", html`
+    <thead><tr>${WORKFLOW.columns.map(([key, label]) => html`<th data-key="${key}" class="${sortClass(key)}">${label}</th>`)}</tr></thead>
+    <tbody>${rows.map((p) => html`<tr>${WORKFLOW.columns.map(([key, , format], i) =>
+      html`<td>${i === 0 && p.flag ? html`<i class="flag ${p.flag}"></i>` : ""}${format(p[key])}</td>`)}</tr>`)}</tbody>`);
+}
+
+function setUpProbesTab() {
+  setHTML("#plate-metric", Object.entries(WORKFLOW.plateMetrics).map(([k, [label]]) => html`<option value="${k}">${label}</option>`));
+  $("#plate-metric").value = Object.keys(WORKFLOW.plateMetrics)[0];
+  $("#plate-metric").onchange = drawPlates;
+  $("#table-toggle-label").textContent = WORKFLOW.tableToggle.label;
+  $("#table-filter").oninput = drawTable;
+  $("#table-toggle").onchange = drawTable;
+  onClick($("#probe-table"), "th", (th) => {
+    sort.asc = sort.key === th.dataset.key ? !sort.asc : th.dataset.key === "probe";
+    sort.key = th.dataset.key;
+    drawTable();
+  });
+}
+
+// ============================================================================
 // Entry point (called from report.html once report_<workflow>.js has defined WORKFLOW)
 // ============================================================================
 function main() {
   drawHeader();
   drawSummary();
-  const drawAll = () => drawSummaryPlots();
+  setUpProbesTab();
+  const drawAll = () => {
+    drawSummaryPlots();
+    drawTable();
+    drawPlates();
+  };
   drawAll();
   // chart colors are resolved from CSS variables, so redraw when light/dark mode flips
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);

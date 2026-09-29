@@ -55,7 +55,14 @@ def probe_basics(cyto_outdir: str, probe: str) -> tuple[pl.DataFrame, dict[str, 
     df = read_barcode_stats(os.path.join(stats, "reads", f"{probe}.reads.tsv.zst"))
     umi_stats = load_json(os.path.join(stats, "umi", f"{probe}.umi.json"))
     mapped, umis = df["n_reads"].sum(), df["n_umis"].sum()
-    rec = {"probe": probe, "mapped_reads": mapped, "umis": umis}
+    rec = {
+        "probe": probe,
+        "n_barcodes": df.height,
+        "mapped_reads": mapped,
+        "umis": umis,
+        "seq_saturation": 1 - umis / mapped if mapped else None,
+        "umi_corrected_frac": umi_stats["fraction_corrected"],
+    }
     return df, rec, (umi_stats["corrected"], umi_stats["total"])
 
 

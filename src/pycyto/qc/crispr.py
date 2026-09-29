@@ -21,6 +21,7 @@ def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
     """Metrics, plot data and per-guide UMI totals for one probe barcode."""
     df, rec, umi_counts = probe_basics(cyto_outdir, probe)
     _, guide_umis, guides = read_counts(os.path.join(cyto_outdir, "counts", f"{probe}.h5ad"))
+    rec["guides_detected"] = int((guide_umis > 0).sum())
     umis_desc = df.sort("n_umis", descending=True)["n_umis"].to_numpy()
     return {
         "rec": rec,

@@ -68,11 +68,14 @@ table.kv tr:last-child td { border-bottom: 0; }
 .tablewrap { overflow: auto; max-height: 640px; border: 1px solid var(--line); border-radius: 6px; }
 table.data { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 table.data th, table.data td { padding: 5px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
-table.data th { position: sticky; top: 0; background: var(--panel); border-bottom-width: 2px; }
+table.data th { position: sticky; top: 0; background: var(--panel); border-bottom-width: 2px; cursor: pointer; user-select: none; }
 table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data tbody tr:hover td { background: var(--hover); }
+table.data th.sorted::after { content: " ▾"; }
+table.data th.sorted.asc::after { content: " ▴"; }
 
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
-select {
+select, input[type=search] {
   font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 5px;
   background: var(--panel); color: var(--ink);
 }
@@ -81,6 +84,12 @@ select {
 .swatch { display: inline-block; width: 12px; height: 3px; margin-right: 5px; vertical-align: middle; }
 .swatch.cell { background: var(--cell); }
 .swatch.bg { background: var(--bgbc); }
+.swatch.empty { width: 10px; height: 10px; background: var(--empty); border: 1px dashed var(--muted); border-radius: 2px; }
+
+.flag { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.flag.ok { background: var(--ok); }
+.flag.warn { background: var(--warn); }
+.flag.err { background: var(--err); }
 
 
 /* ---------- charts (Observable Plot) ---------- */

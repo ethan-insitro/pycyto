@@ -1,4 +1,4 @@
-"""Cell Ranger-style alerts for every workflow."""
+"""Cell Ranger-style alerts and per-probe-barcode status flags, for every workflow."""
 
 import polars as pl
 
@@ -15,6 +15,23 @@ THRESH = {
     # crispr
     "frac_guides_detected": (0.90, 0.75),  # guides with >= 1 UMI; below -> warn / error
     "guide_skew_ratio": 10,  # 90th / 10th percentile UMIs per guide; above -> warn
+}
+
+# Per-probe-barcode status shown as a colored dot in the report (null: nothing to flag)
+PROBE_FLAG = {
+    "gex": (
+        pl.when(pl.col("cells") == 0)
+        .then(pl.lit(None, dtype=pl.String))
+        .when(
+            (pl.col("median_umis_per_cell") < THRESH["median_umis_per_cell"])
+            | (pl.col("frac_reads_in_cells") < THRESH["frac_reads_in_cells"][1])
+        )
+        .then(pl.lit("warn"))
+        .otherwise(pl.lit("ok"))
+        .alias("flag")
+    ),
+    # no cell calls or assignments in a CRISPR run, so no per-probe-barcode verdict
+    "crispr": pl.lit(None, dtype=pl.String).alias("flag"),
 }
 
 

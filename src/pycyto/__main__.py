@@ -143,7 +143,7 @@ def qc(
     csv: Annotated[
         bool,
         typer.Option(
-            help="Also write the run-level metrics to <output>_metrics_summary.csv"
+            help="Also write <output>_metrics_summary.csv and <output>_probe_metrics.csv"
         ),
     ] = True,
     verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,

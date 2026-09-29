@@ -65,6 +65,8 @@ def cyto_dir(tmp_path_factory):
             truth[probe] = {
                 "cells": len(cells),
                 "median_umis_per_cell": float(np.median(umis[cells])),
+                "median_genes_per_cell": float(np.median((counts[cells] > 0).sum(1))),
+                "total_genes_detected": int(((counts[cells] > 0).sum(0) > 0).sum()),
                 "reads_in_cells": int(reads[cells].sum()),
                 "mapped_reads": int(reads.sum()),
             }
@@ -136,6 +138,8 @@ def crispr_dir(tmp_path_factory):
         truth[probe] = {
             "umis": int(umis.sum()),
             "mapped_reads": int(reads.sum()),
+            "n_barcodes": n,
+            "guides_detected": int((counts.sum(0) > 0).sum()),
         }
     (root / "stats" / "mapping_map.json").write_text(
         json.dumps({"total_reads": 50_000, "mapped_reads": 40_000, "mapped_reads_frac": 0.8,

@@ -13,7 +13,7 @@ from importlib.metadata import version
 import polars as pl
 
 from . import crispr, gex
-from .alerts import build_alerts
+from .alerts import PROBE_FLAG, build_alerts
 from .metrics import LOG_BINS
 from .parse import detect_workflow, discover_probes, load_run_metadata
 from .render import render_html, write_csvs
@@ -35,6 +35,13 @@ def collect(cyto_outdir: str, title: str | None = None) -> dict:
     results = [wf.process_probe(cyto_outdir, probe) for probe in probes]
 
     table = pl.DataFrame([r["rec"] for r in results], infer_schema_length=None)
+    total_mapped = table["mapped_reads"].sum()
+    table = table.with_columns(
+        PROBE_FLAG[workflow],
+        frac_of_mapped_reads=pl.col("mapped_reads") / total_mapped
+        if total_mapped
+        else pl.lit(None, dtype=pl.Float64),
+    )
 
     summary = wf.summarize(results, meta, cyto_outdir)
     return {
