@@ -8,6 +8,7 @@ Python utilities for cyto - format conversion and sample aggregation.
 
 - **convert**: Transform MTX format to h5ad (AnnData)
 - **aggregate**: Combine multi-probe cyto outputs into unified sample-level datasets
+- **qc**: Compute Cell Ranger-style QC metrics for a cyto GEX run
 
 ## Installation
 
@@ -91,6 +92,31 @@ output_directory/
     ├── sample_name_assignments.parquet   # Guide assignments per cell
     └── sample_name_reads.parquet         # Read/UMI statistics per barcode
 ```
+
+### qc
+
+Compute Cell Ranger-style QC metrics (similar to `web_summary.html`) for a single `cyto workflow gex` output directory, write them to CSV and log any alerts.
+
+```bash
+pycyto qc <cyto_outdir>
+```
+
+**Arguments**:
+- `cyto_outdir`: One cyto GEX output directory (the one containing `stats/` and `counts/`)
+
+**Options**:
+- `--output PATH`: Output path stem; metrics go to `<output>_metrics_summary.csv` (default: `<cyto_outdir>/qc_report`)
+- `--threads INT`: Number of parallel probe-barcode workers (default: -1 for all cores)
+- `--verbose`: Enable detailed logging
+
+**What it reports**:
+- Alerts (logged as warnings) for low mapping rate, low UMI quality, low fraction of reads in cells, and reads in probe barcodes without cells
+- Sequencing metrics: reads, fraction mapped, sequencing saturation, UMI correction
+- Cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, fraction of reads in cells
+
+**Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
+
+**Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`, `counts/*.filt.h5ad`. Missing metadata files are tolerated.
 
 ## Configuration Format
 

@@ -1,6 +1,6 @@
 """Cell Ranger-style QC reports for a single cyto output directory (``cyto workflow gex``).
 
-Entry point: :func:`collect`. The workflow is detected from the
+Entry point: :func:`build_report` (CLI: ``pycyto qc``). The workflow is detected from the
 output directory; each workflow module (:mod:`.gex`) provides ``FEATURE``, ``process_probe``,
 ``summarize`` and ``pooled_plots``, and everything else is shared.
 """
@@ -19,8 +19,9 @@ from . import gex
 from .alerts import build_alerts
 from .metrics import LOG_BINS
 from .parse import detect_workflow, discover_probes, load_run_metadata
+from .render import write_csvs
 
-__all__ = ["collect"]
+__all__ = ["build_report", "collect"]
 
 logger = logging.getLogger("pycyto.qc")
 
@@ -79,3 +80,18 @@ def collect(
         "log_bins": LOG_BINS.tolist(),
     }
 
+
+def build_report(
+    cyto_outdir: str, output: str | None = None, threads: int = -1, verbose: bool = False
+) -> str:
+    """Write the run-level metrics to ``<output>_metrics_summary.csv`` and log any alerts.
+
+    ``output`` is a path stem (default ``<cyto_outdir>/qc_report``); returns it.
+    """
+    payload = collect(cyto_outdir, threads=threads, verbose=verbose)
+    stem = output or os.path.join(cyto_outdir, "qc_report")
+    logger.info(f"Wrote metrics: {', '.join(write_csvs(payload, stem))}")
+    for alert in payload["alerts"]:
+        if alert["level"] != "ok":
+            logger.warning(f"{alert['title']}: {alert['detail']}")
+    return stem
