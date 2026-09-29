@@ -65,6 +65,12 @@ function drawHeader() {
 }
 
 function drawSummary() {
+  setHTML("#hero", [
+    [fmt.int(S.estimated_cells), "Estimated number of cells"],
+    [fmt.int(S.mean_reads_per_cell), "Mean reads per cell"],
+    [fmt.int(S.median_genes_per_cell), "Median genes per cell"],
+    [fmt.int(S.median_umis_per_cell), "Median UMI counts per cell"],
+  ].map(([v, label]) => html`<div class="card hero"><div class="value">${v}</div><div class="label">${label}</div></div>`));
   const inLibrary = S.probe_barcodes_in_library ? ` / ${fmt.int(S.probe_barcodes_in_library)} in library` : "";
   kvTable("#kv-sequencing", [
     ["Number of reads", fmt.int(S.total_reads)],
@@ -72,6 +78,14 @@ function drawSummary() {
     ["Sequencing saturation", fmt.pct(S.seq_saturation), "1 − UMIs / mapped reads, over all barcodes"],
     ["UMIs corrected", fmt.pct2(S.umi_corrected_frac)],
     ["Probe barcodes with reads", `${fmt.int(S.probe_barcodes_with_reads)}${inLibrary}`],
+  ]);
+  kvTable("#kv-cells", [
+    ["Probe barcodes with cells", fmt.of(S.probe_barcodes_with_cells, S.probe_barcodes_with_reads)],
+    ["Median cells per probe barcode", fmt.int(S.cells_median_per_probe), "Among probe barcodes with cells"],
+    ["Mean mapped reads per cell", fmt.int(S.mean_mapped_reads_per_cell)],
+    ["Fraction reads in cells", fmt.pct(S.frac_reads_in_cells), "Mapped reads in cell barcodes / all mapped reads"],
+    ["Mapped reads in probe barcodes without cells", fmt.pct(S.background_probe_read_frac)],
+    ["Total genes detected", fmt.of(S.total_genes_detected, S.genes_in_reference)],
   ]);
 }
 

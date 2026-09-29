@@ -102,7 +102,7 @@ pycyto qc <cyto_outdir>
 ```
 
 **Arguments**:
-- `cyto_outdir`: One cyto GEX output directory (the one containing `stats/`)
+- `cyto_outdir`: One cyto GEX output directory (the one containing `stats/` and `counts/`)
 
 **Options**:
 - `--output PATH`: HTML report path (default: `<cyto_outdir>/qc_report.html`)
@@ -110,9 +110,12 @@ pycyto qc <cyto_outdir>
 - `--csv / --no-csv`: Also write the run-level metrics to `<output>_metrics_summary.csv` (default: enabled)
 - `--verbose`: Enable detailed logging
 
-**What it reports**: sequencing metrics (reads, fraction mapped, sequencing saturation, UMI correction, probe barcodes with reads).
+**What it reports**:
+- Sequencing metrics: reads, fraction mapped, sequencing saturation, UMI correction
 
-**Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`. The directory must be from a completed cyto run.
+Cell metrics: estimated cells, mean reads per cell, median genes and UMIs per cell, and fraction of reads in cells. **Cells** are exactly the barcodes in cyto's `counts/<probe>.filt.h5ad`; probe barcodes without a filtered h5ad have no cells.
+
+**Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`, `counts/*.filt.h5ad`. The directory must be from a completed cyto run.
 
 The HTML report is a single self-contained file.
 
