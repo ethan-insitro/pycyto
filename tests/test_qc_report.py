@@ -24,7 +24,6 @@ class TestBuildReport:
         for placeholder in ("__DATA__", "__TITLE__", "/*__CSS__*/", "/*__JS__*/"):
             assert placeholder not in html
         assert "--cell:" in html and "function drawSummary" in html  # CSS and JS inlined
-        assert 'subtitle: "cyto workflow gex"' in html  # the GEX workflow config
         assert data["workflow"] == "gex"
         assert not os.path.exists(str(tmp_path / "report_metrics_summary.csv"))
 

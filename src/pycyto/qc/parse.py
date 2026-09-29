@@ -38,9 +38,8 @@ def load_run_metadata(cyto_outdir: str) -> dict[str, Any]:
 def detect_workflow(meta: dict[str, Any]) -> str:
     """The cyto workflow (``gex``), from the feature library named in ``mapping_lib.json``."""
     libraries = {d["name"] for d in meta["library"]}
-    for workflow in ("gex",):
-        if workflow in libraries:
-            return workflow
+    if "gex" in libraries:
+        return "gex"
     raise ValueError(
         f"Can't tell which cyto workflow produced this directory (libraries: {sorted(libraries)}); "
         "expected a `cyto workflow gex` run"

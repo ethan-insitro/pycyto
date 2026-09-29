@@ -1,18 +1,11 @@
 "use strict";
 
-// Shared report engine for every cyto workflow. All numbers, flags and labels are computed
-// in Python (pycyto.qc); this file only draws them. What differs between workflows (so far just
-// the header subtitle) lives in report_<workflow>.js, which defines
-// `WORKFLOW` (see the WorkflowConfig typedef below); report.html then calls main().
+// All numbers, flags and labels are computed in Python (pycyto.qc); this file only draws them.
+// report.html calls main() once the payload and this script are loaded.
 const D = JSON.parse(document.getElementById("data").textContent);
 const S = D.summary;
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
-
-/**
- * @typedef {object} WorkflowConfig
- * @property {string} subtitle                  shown in the header
- */
 
 // ============================================================================
 // Formatting and HTML
@@ -65,7 +58,7 @@ function showTab(name) {
 
 function drawHeader() {
   $("#title").textContent = D.title;
-  $("#generated").textContent = `${WORKFLOW.subtitle} · generated ${D.generated}`;
+  $("#generated").textContent = `cyto workflow ${D.workflow} · generated ${D.generated}`;
   $("#footer").textContent = `pycyto ${D.version} · ${S.cyto_outdir}`;
   onClick($("nav"), "button", (b) => showTab(b.dataset.tab));
   if ($(`nav button[data-tab="${location.hash.slice(1)}"]`)) showTab(location.hash.slice(1));
@@ -83,7 +76,7 @@ function drawSummary() {
 }
 
 // ============================================================================
-// Entry point (called from report.html once report_<workflow>.js has defined WORKFLOW)
+// Entry point (called from report.html)
 // ============================================================================
 function main() {
   drawHeader();
