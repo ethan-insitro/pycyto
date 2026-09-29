@@ -110,7 +110,7 @@ def unmapped_reasons(mapping: dict, feature: str = "gene probe") -> list[dict[st
 
 
 def run_summary(results: list[dict], meta: dict, cyto_outdir: str, feature: str) -> dict[str, Any]:
-    """Run-level metrics every workflow reports: reads, mapping, saturation."""
+    """Run-level metrics every workflow reports: reads, mapping, saturation, run info."""
     recs = [r["rec"] for r in results]
     mapped = sum(r["mapped_reads"] for r in recs)
     umis = sum(r["umis"] for r in recs)
@@ -128,6 +128,9 @@ def run_summary(results: list[dict], meta: dict, cyto_outdir: str, feature: str)
         "failed_umi_qual_of_total": _div(mapping["unmapped"]["failed_umi_qual"], mapping["total_reads"]),
         "probe_barcodes_in_library": lib["probe"]["total_elem"],
         "probe_barcodes_with_reads": len(recs),
+        "whitelist_size": lib["whitelist"]["total_elem"],
         "seq_saturation": 1 - umis / mapped if mapped else None,
         "umi_corrected_frac": _div(corrected, total_umis),
+        "mapping_sec": meta["timings"]["Mapping"],
+        "n_inputs": len(meta["run"]),
     }

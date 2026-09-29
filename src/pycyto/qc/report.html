@@ -15,6 +15,7 @@
 <nav>
   <button data-tab="summary" class="active">Summary</button>
   <button data-tab="probes">Probe barcodes</button>
+  <button data-tab="mapping">Mapping &amp; run</button>
 </nav>
 
 <main>
@@ -59,6 +60,25 @@
         <label><input type="checkbox" id="table-toggle"> <span id="table-toggle-label"></span></label>
       </div>
       <div class="tablewrap"><table class="data clickable" id="probe-table"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-mapping">
+    <div class="grid g2">
+      <div class="card">
+        <h2>Read fate</h2>
+        <div id="read-fate"></div>
+        <h2 class="gap">Unmapped read reasons <span class="hint">% of all reads; a read can fail more than one check</span></h2>
+        <div id="unmapped"></div>
+      </div>
+      <div class="grid">
+        <div class="card"><h2>Run</h2><table class="kv" id="kv-run"></table></div>
+        <div class="card"><h2>Reference libraries</h2><div class="tablewrap"><table class="data" id="library-table"></table></div></div>
+      </div>
+    </div>
+    <div class="grid g2 gap">
+      <div class="card"><h2>Time by step <span class="hint">summed across probe barcodes</span></h2><div id="timings"></div></div>
+      <div class="card"><h2>Mapping time per input file</h2><div id="input-timings"></div></div>
     </div>
   </section>
 </main>

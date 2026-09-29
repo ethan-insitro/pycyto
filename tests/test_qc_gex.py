@@ -35,7 +35,15 @@ class TestCollect:
         assert s["probe_barcodes_with_cells"] == 3
         assert s["mean_reads_per_cell"] == pytest.approx(1_000_000 / s["estimated_cells"])
         assert s["top_unmapped_reason"] == "No gene probe match"
+        assert s["mapping_sec"] == 10.5
         assert s["total_genes_detected"] <= N_GENES
+
+    def test_unmapped_reasons(self, payload):
+        rows = payload["unmapped"]
+        assert [r["reason"] for r in rows] == ["missing_feature", "failed_umi_qual"]
+        assert rows[0]["label"] == "No gene probe match"
+        assert rows[0]["frac_of_reads"] == pytest.approx(0.3)
+        assert rows[0]["frac_of_unmapped"] == 0.75
 
     def test_alerts(self, payload):
         titles = {a["title"] for a in payload["alerts"]}

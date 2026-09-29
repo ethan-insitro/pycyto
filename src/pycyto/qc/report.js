@@ -52,6 +52,11 @@ const fmt = {
     if (Math.abs(v) >= 1e4) return `${(v / 1e3).toFixed(1)}k`;
     return fmt.int(v);
   },
+  dur: (sec) => {
+    if (isNA(sec)) return "—";
+    const s = Math.round(sec), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? `${h}h ${m}m` : m ? `${m}m ${s % 60}s` : `${s}s`;
+  },
   text: (v) => (isNA(v) ? "—" : v),
   of: (n, total) => (isNA(n) ? "—" : `${fmt.int(n)} / ${fmt.int(total)}`),
 };
@@ -339,6 +344,41 @@ function setUpProbesTab() {
 }
 
 // ============================================================================
+// Mapping & run tab
+// ============================================================================
+function drawMapping() {
+  const mapped = S.mapped_reads_frac ?? 0;
+  hbars($("#read-fate"), [
+    { label: "Mapped", value: mapped, color: color("--ok"), tip: `${fmt.int(S.mapped_reads)} reads` },
+    { label: "Unmapped", value: 1 - mapped, color: color("--err"), tip: `${fmt.int((S.total_reads ?? 0) - (S.mapped_reads ?? 0))} reads` },
+  ], { format: fmt.pct, max: 1, labelWidth: 110 });
+
+  if (D.unmapped.length) {
+    hbars($("#unmapped"), D.unmapped.map((r) => ({
+      label: r.label, value: r.frac_of_reads ?? 0, color: color("--warn"), tip: `${fmt.int(r.reads)} reads\n${fmt.pct(r.frac_of_unmapped)} of unmapped reads`,
+    })), { format: fmt.pct, labelWidth: 190 });
+  } else setHTML("#unmapped", html`<p class="muted">No mapping_map.json found</p>`);
+
+  kvTable("#kv-run", [
+    ["Workflow", `cyto workflow ${D.workflow}`],
+    ["Input files", fmt.int(S.n_inputs)],
+    ["Mapping time", fmt.dur(S.mapping_sec)],
+    ["Cell whitelist size", fmt.int(S.whitelist_size)],
+  ]);
+
+  setHTML("#library-table", html`
+    <thead><tr><th>Library</th><th>Elements</th><th>Unique</th><th>Read</th><th>Position</th><th>Window</th></tr></thead>
+    <tbody>${D.library.map((l) => html`<tr><td>${l.name}</td><td>${fmt.int(l.total_elem)}</td><td>${fmt.int(l.total_aggr)}</td>
+      <td>${l.mate}</td><td>${fmt.int(l.position)}</td><td>${fmt.int(l.window)}${l.exact ? " (exact)" : ""}</td></tr>`)}</tbody>`);
+
+  const steps = Object.entries(D.timings).sort((a, b) => b[1] - a[1]);
+  if (steps.length) hbars($("#timings"), steps.map(([label, value]) => ({ label, value, tip: fmt.dur(value) })), { format: fmt.dur, labelWidth: 140 });
+  else setHTML("#timings", html`<p class="muted">No .timings.tsv found</p>`);
+  if (D.run.length) hbars($("#input-timings"), D.run.map((r) => ({ label: `input ${r.input_id}`, value: r.elapsed_sec, tip: fmt.dur(r.elapsed_sec) })), { format: fmt.dur, labelWidth: 90 });
+  else setHTML("#input-timings", html`<p class="muted">No mapping_run.json found</p>`);
+}
+
+// ============================================================================
 // Entry point (called from report.html once report_<workflow>.js has defined WORKFLOW)
 // ============================================================================
 function main() {
@@ -348,6 +388,7 @@ function main() {
   selected = [...PROBES].sort((a, b) => (b[WORKFLOW.sortKey] ?? 0) - (a[WORKFLOW.sortKey] ?? 0))[0]?.probe ?? null;
   const drawAll = () => {
     drawSummaryPlots();
+    drawMapping();
     drawTable();
     if (selected) selectProbe(selected);
     else drawPlates();

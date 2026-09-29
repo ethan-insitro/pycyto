@@ -14,7 +14,7 @@ import polars as pl
 
 from . import crispr, gex
 from .alerts import PROBE_FLAG, build_alerts
-from .metrics import LOG_BINS
+from .metrics import LOG_BINS, unmapped_reasons
 from .parse import detect_workflow, discover_probes, load_run_metadata
 from .render import render_html, write_csvs
 
@@ -51,6 +51,10 @@ def collect(cyto_outdir: str, title: str | None = None) -> dict:
         "version": version("pycyto"),
         "summary": summary,
         "alerts": build_alerts(workflow, summary, table),
+        "unmapped": unmapped_reasons(meta["mapping"], wf.FEATURE),
+        "library": meta["library"],
+        "run": meta["run"],
+        "timings": meta["timings"],
         "probes": table.to_dicts(),
         "plots": {r["rec"]["probe"]: r["plots"] for r in results},
         "pooled": wf.pooled_plots(results),

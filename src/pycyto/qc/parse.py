@@ -42,12 +42,20 @@ def read_barcode_stats(path: str) -> pl.DataFrame:
     )
 
 
+def parse_timings(path: str) -> dict[str, float]:
+    """Elapsed seconds in ``.timings.tsv``, summed by pipeline module."""
+    df = pl.read_csv(path, separator="\t")
+    return dict(df.group_by("module").agg(pl.col("elapsed").sum()).iter_rows())
+
+
 def load_run_metadata(cyto_outdir: str) -> dict[str, Any]:
-    """Everything run-level: mapping stats and reference libraries."""
+    """Everything run-level: mapping stats, reference libraries, per-input timing."""
     stats = os.path.join(cyto_outdir, "stats")
     return {
         "mapping": load_json(os.path.join(stats, "mapping_map.json")),
         "library": load_json(os.path.join(stats, "mapping_lib.json")),
+        "run": load_json(os.path.join(stats, "mapping_run.json")),
+        "timings": parse_timings(os.path.join(cyto_outdir, ".timings.tsv")),
     }
 
 
