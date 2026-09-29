@@ -8,6 +8,7 @@ Python utilities for cyto - format conversion and sample aggregation.
 
 - **convert**: Transform MTX format to h5ad (AnnData)
 - **aggregate**: Combine multi-probe cyto outputs into unified sample-level datasets
+- **qc**: Generate a Cell Ranger-style HTML QC report for a cyto GEX run
 
 ## Installation
 
@@ -91,6 +92,29 @@ output_directory/
     ├── sample_name_assignments.parquet   # Guide assignments per cell
     └── sample_name_reads.parquet         # Read/UMI statistics per barcode
 ```
+
+### qc
+
+Generate a Cell Ranger-style QC report (similar to `web_summary.html`) for a single `cyto workflow gex` output directory.
+
+```bash
+pycyto qc <cyto_outdir>
+```
+
+**Arguments**:
+- `cyto_outdir`: One cyto GEX output directory (the one containing `stats/`)
+
+**Options**:
+- `--output PATH`: HTML report path (default: `<cyto_outdir>/qc_report.html`)
+- `--title TEXT`: Report title (default: name of `cyto_outdir`)
+- `--csv / --no-csv`: Also write the run-level metrics to `<output>_metrics_summary.csv` (default: enabled)
+- `--verbose`: Enable detailed logging
+
+**What it reports**: sequencing metrics (reads, fraction mapped, sequencing saturation, UMI correction, probe barcodes with reads).
+
+**Inputs read** (all under `cyto_outdir`): `stats/mapping_{map,lib}.json`, `stats/reads/*.reads.tsv.zst`, `stats/umi/*.umi.json`. The directory must be from a completed cyto run.
+
+The HTML report is a single self-contained file.
 
 ## Configuration Format
 

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cyto QC · __TITLE__</title>
+  <style>/*__CSS__*/</style>
+</head>
+<body>
+<header>
+  <h1>cyto QC report</h1>
+  <span class="sub" id="title"></span>
+  <span class="sub" id="generated"></span>
+</header>
+<nav>
+  <button data-tab="summary" class="active">Summary</button>
+</nav>
+
+<main>
+  <section class="tab active" id="tab-summary">
+    <div class="grid g2 gap">
+      <div class="grid">
+        <div class="card"><h2>Sequencing</h2><table class="kv" id="kv-sequencing"></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="footer"></footer>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>/*__JS__*/</script>
+<script>main();</script>
+</body>
+</html>

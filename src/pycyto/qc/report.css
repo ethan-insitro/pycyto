@@ -1,0 +1,51 @@
+/* ---------- theme ---------- */
+:root {
+  --bg: #f5f6f8; --panel: #fff; --ink: #1b1f24; --muted: #5f6b7a; --line: #e2e6eb;
+  --head: #0f2a44; --head-ink: #fff; --accent: #1f6fd1; --cell: #1f6fd1; --bgbc: #b7bec8;
+  --ok: #1a7f4b; --ok-bg: #e7f5ee; --warn: #9a6700; --warn-bg: #fff5d6;
+  --err: #b42318; --err-bg: #fdecea; --hover: #f0f4fa; --empty: #eef0f3;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --panel: #1a1e24; --ink: #e6e9ee; --muted: #9aa5b1; --line: #2c323b;
+    --head: #0b1826; --head-ink: #e6e9ee; --accent: #5aa2ff; --cell: #5aa2ff; --bgbc: #4a525e;
+    --ok: #4cc38a; --ok-bg: #12291e; --warn: #e3b341; --warn-bg: #2b2410;
+    --err: #ff7b72; --err-bg: #2d1414; --hover: #222833; --empty: #232830;
+  }
+}
+
+/* ---------- page layout ---------- */
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+header { background: var(--head); color: var(--head-ink); padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; }
+header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+header .sub { opacity: .75; font-size: 12.5px; }
+header .sub:last-child { margin-left: auto; }
+nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 12px 14px; font: inherit; color: var(--muted); cursor: pointer; }
+nav button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
+section.tab { display: none; }
+section.tab.active { display: block; }
+footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px; }
+
+.grid { display: grid; gap: 16px; align-content: start; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
+.gap { margin-top: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; min-width: 0; }
+.card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
+@media (max-width: 560px) {
+  .g2 { grid-template-columns: 1fr; }
+  main { padding: 16px; }
+  header, nav { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ---------- components ---------- */
+table.kv { width: 100%; border-collapse: collapse; }
+table.kv td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.kv td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+table.kv tr:last-child td { border-bottom: 0; }
