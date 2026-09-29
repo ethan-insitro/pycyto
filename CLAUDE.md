@@ -33,7 +33,7 @@ uv pip install -e .
 - `aggregate.py` - Multi-modal sample aggregation logic
 - `convert.py` - Simple MTX to h5ad conversion utilities
 - `qc/` - Cell Ranger-style QC report for one cyto GEX or CRISPR output directory (`pycyto qc`)
-  - `parse.py` - Readers for cyto's structured outputs (`stats/*.json`, `*.reads.tsv.zst`) and `detect_workflow`
+  - `parse.py` - Readers for cyto's structured outputs (`stats/*.json`, `.timings.tsv`, `*.reads.tsv.zst`) and `detect_workflow`
   - `metrics.py` - Shared building blocks: count-h5ad scanner (`read_counts`), per-probe basics (`probe_basics`), rank curves, histograms, unmapped reasons, run-level summary (`run_summary`)
   - `gex.py` / `crispr.py` - Workflow modules, each with `FEATURE`, `process_probe`, `summarize` and `pooled_plots`
   - `alerts.py` - Alert rules, thresholds (`THRESH`) and per-probe flags (`PROBE_FLAG`) for every workflow
@@ -57,7 +57,7 @@ uv pip install -e .
 - Filtered h5ad files are opened in backed mode (`ad.read_h5ad(path, backed="r")`) and `X` is read in row chunks, so memory stays bounded.
 - Per-probe metrics come from joining the reads stats (`barcode, n_umis, n_reads`) with the filtered cells (`barcode, n_genes`) in polars; a barcode is a cell iff it joined.
 - The template (`qc/report.html`) receives the whole payload as JSON in a `<script type="application/json">` block; charts are drawn with Observable Plot (`qc/report.js`). d3 and Plot load from jsDelivr via pinned, SRI-checked `<script>` tags in `report.html`, so charts need an internet connection; offline, charts show a note and the tables/metrics still render. To upgrade, bump the versions there and take the new sha256 hashes from `https://data.jsdelivr.com/v1/packages/npm/<pkg>@<version>?structure=flat`. Chart colors are read from the CSS variables in `qc/report.css` (`color()` in `report.js`) and charts redraw when light/dark mode changes.
-- `report.js` only draws: per-probe status flags (`alerts.PROBE_FLAG`) and all metrics are computed in Python, so rules live in one place and are covered by pytest.
+- `report.js` only draws: per-probe status flags (`alerts.PROBE_FLAG`), unmapped-reason labels (`metrics.unmapped_reasons`) and all metrics are computed in Python, so rules live in one place and are covered by pytest.
 - In `report.js`, HTML is built with the escaping `html` tagged template (wrap trusted markup in `raw()`), chart tooltips/clicks use Plot's pointer (`plot.value`), and table/nav clicks are delegated from containers via `data-probe` / `data-key`.
 
 ### Key Dependencies
