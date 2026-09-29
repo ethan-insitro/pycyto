@@ -32,6 +32,33 @@ uv pip install -e .
 - `config.py` - Configuration parsing and barcode expansion DSL
 - `aggregate.py` - Multi-modal sample aggregation logic
 - `convert.py` - Simple MTX to h5ad conversion utilities
+- `qc/` - Cell Ranger-style QC report for one cyto GEX or CRISPR output directory (`pycyto qc`)
+  - `parse.py` - Readers for cyto's structured outputs (`stats/*.json`, `*.reads.tsv.zst`) and `detect_workflow`
+  - `metrics.py` - Shared building blocks: count-h5ad scanner (`read_counts`), per-probe basics (`probe_basics`), rank curves, histograms, unmapped reasons, run-level summary (`run_summary`)
+  - `gex.py` / `crispr.py` - Workflow modules, each with `FEATURE`, `process_probe`, `summarize` and `pooled_plots`
+  - `alerts.py` - Alert rules and thresholds (`THRESH`) for every workflow
+  - `render.py` - JSON payload -> HTML and CSVs; inlines `report.css`, `report.js` and `report_<workflow>.js` into `report.html` (loaded via `importlib.resources`)
+  - `report.html` / `report.css` / `report.js` - shared markup, styles and rendering engine; `report_gex.js` / `report_crispr.js` - per-workflow `WORKFLOW` config (headline metrics, panels)
+  - `__init__.py` - `collect()` (detects the workflow, runs its `process_probe` over each probe barcode) and `build_report()`
+
+## The `qc` Module
+
+**Purpose**: Summarize the quality of a single cyto GEX or CRISPR run the way Cell Ranger's `web_summary.html` does.
+
+**Adding a workflow**: add a module like `gex.py` (`FEATURE`, `process_probe`, `summarize`, `pooled_plots`), register it in `WORKFLOWS` (`qc/__init__.py`) and `detect_workflow`, add its alerts to `alerts.py`, and add `report_<workflow>.js` defining `WORKFLOW` (see the `WorkflowConfig` typedef in `report.js`).
+
+**CRISPR runs** have no cell calls; `crispr.py` reports guide capture per probe barcode (from `counts/<probe>.h5ad`) and library coverage (guides detected, skew = 90th/10th percentile UMIs per guide). Guide assignments are not reported yet.
+
+**GEX cells** are exactly the barcodes in `counts/<probe>.filt.h5ad` (cyto's own cell calls); the report does no cell calling of its own. Probe barcodes without a filtered h5ad have zero cells.
+
+**Key behaviors**:
+
+- Assumes a completed cyto run: the structured outputs (`stats/*.json`, `stats/reads`, `stats/umi`, `.timings.tsv`, CRISPR `counts/*.h5ad`) are read without fallbacks. Probe barcodes are processed one at a time.
+- Filtered h5ad files are opened in backed mode (`ad.read_h5ad(path, backed="r")`) and `X` is read in row chunks, so memory stays bounded.
+- Per-probe metrics come from joining the reads stats (`barcode, n_umis, n_reads`) with the filtered cells (`barcode, n_genes`) in polars; a barcode is a cell iff it joined.
+- The template (`qc/report.html`) receives the whole payload as JSON in a `<script type="application/json">` block; charts are drawn with Observable Plot (`qc/report.js`). d3 and Plot load from jsDelivr via pinned, SRI-checked `<script>` tags in `report.html`, so charts need an internet connection; offline, charts show a note and the tables/metrics still render. To upgrade, bump the versions there and take the new sha256 hashes from `https://data.jsdelivr.com/v1/packages/npm/<pkg>@<version>?structure=flat`. Chart colors are read from the CSS variables in `qc/report.css` (`color()` in `report.js`) and charts redraw when light/dark mode changes.
+- `report.js` only draws: all metrics are computed in Python, so rules live in one place and are covered by pytest.
+- In `report.js`, HTML is built with the escaping `html` tagged template (wrap trusted markup in `raw()`), chart tooltips/clicks use Plot's pointer (`plot.value`), and nav clicks are delegated from the container via `data-tab`.
 
 ### Key Dependencies
 

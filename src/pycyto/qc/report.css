@@ -42,6 +42,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px
 .card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
 h2 .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
 .muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12px; }
 @media (max-width: 560px) {
   .g2 { grid-template-columns: 1fr; }
   main { padding: 16px; }
@@ -63,6 +64,12 @@ table.kv { width: 100%; border-collapse: collapse; }
 table.kv td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.kv td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
 table.kv tr:last-child td { border-bottom: 0; }
+
+.tablewrap { overflow: auto; max-height: 640px; border: 1px solid var(--line); border-radius: 6px; }
+table.data { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.data th, table.data td { padding: 5px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+table.data th { position: sticky; top: 0; background: var(--panel); border-bottom-width: 2px; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
 
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
 select {

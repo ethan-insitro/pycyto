@@ -12,7 +12,8 @@ def _asset(name: str) -> str:
 
 
 def render_html(payload: dict) -> str:
-    """Inline the CSS, ``report.js`` and the payload into ``report.html``."""
+    """Inline the CSS, the shared ``report.js``, the workflow's ``report_<workflow>.js``
+    and the payload into ``report.html``."""
     # the payload lives inside a <script> block, so "</" must be escaped
     data = json.dumps(payload, allow_nan=False).replace("</", "<\\/")
     # data goes last so nothing inside the payload is mistaken for a placeholder
@@ -20,6 +21,7 @@ def render_html(payload: dict) -> str:
         _asset("report.html")
         .replace("/*__CSS__*/", _asset("report.css"))
         .replace("/*__JS__*/", _asset("report.js"))
+        .replace("/*__WORKFLOW_JS__*/", _asset(f"report_{payload['workflow']}.js"))
         .replace("__TITLE__", html.escape(payload["title"]))
         .replace("__DATA__", data)
     )

@@ -1,15 +1,20 @@
-"""Cell Ranger-style alerts."""
+"""Cell Ranger-style alerts for every workflow."""
 
 import polars as pl
 
 # Alert thresholds. Tuples are (warn, error).
 THRESH = {
+    # all workflows
     "mapped_frac": (0.70, 0.50),  # below -> warn / error
     "failed_umi_qual_of_total": 0.10,  # above -> warn
+    # gex
     "frac_reads_in_cells": (0.70, 0.50),  # below -> warn / error
     "background_probe_read_frac": 0.05,  # reads in probe barcodes w/o cells; above -> warn
     "median_umis_per_cell": 500,  # below -> warn (per probe barcode)
     "cells_cv": 0.5,  # CV of cells across probe barcodes with cells; above -> warn
+    # crispr
+    "frac_guides_detected": (0.90, 0.75),  # guides with >= 1 UMI; below -> warn / error
+    "guide_skew_ratio": 10,  # 90th / 10th percentile UMIs per guide; above -> warn
 }
 
 
@@ -28,14 +33,14 @@ def _examples(rows: pl.DataFrame, fmt, limit: int = 10) -> str:
     return ", ".join(items) + (" …" if rows.height > limit else "")
 
 
-def build_alerts(summary: dict, recs: list[dict]) -> list[dict]:
-    """Alerts for the run-level ``summary`` and the per-probe-barcode rows ``recs``."""
+def build_alerts(workflow: str, summary: dict, probes: pl.DataFrame) -> list[dict]:
     alerts: list[dict] = []
 
     def add(level: str | None, title: str, detail: str) -> None:
         if level:
             alerts.append({"level": level, "title": title, "detail": detail})
 
+    # --- all workflows --------------------------------------------------------------
     mf = summary["mapped_reads_frac"]
     add(
         _below(mf, *THRESH["mapped_frac"]),
@@ -50,6 +55,17 @@ def build_alerts(summary: dict, recs: list[dict]) -> list[dict]:
         f"{fu or 0:.1%} of all reads failed the UMI quality filter. "
         "This can point to low base quality in R1.",
     )
+    if workflow == "gex":
+        _gex_alerts(add, summary, probes)
+    elif workflow == "crispr":
+        _crispr_alerts(add, summary)
+
+    return alerts or [
+        {"level": "ok", "title": "No issues detected", "detail": "All checked metrics are within expected ranges."}
+    ]
+
+
+def _gex_alerts(add, summary: dict, probes: pl.DataFrame) -> None:
     fr = summary["frac_reads_in_cells"]
     add(
         _below(fr, *THRESH["frac_reads_in_cells"]),
@@ -65,7 +81,7 @@ def build_alerts(summary: dict, recs: list[dict]) -> list[dict]:
         "barcodes with no cells. Check for unexpected probe barcodes or barcode hopping.",
     )
 
-    called = pl.DataFrame(recs, infer_schema_length=None).filter(pl.col("cells") > 0)
+    called = probes.filter(pl.col("cells") > 0)
     low = called.filter(pl.col("median_umis_per_cell") < THRESH["median_umis_per_cell"])
     add(
         "warn" if low.height else None,
@@ -94,6 +110,20 @@ def build_alerts(summary: dict, recs: list[dict]) -> list[dict]:
             f"Coefficient of variation of cells per probe barcode is {cv:.2f}.",
         )
 
-    return alerts or [
-        {"level": "ok", "title": "No issues detected", "detail": "All checked metrics are within expected ranges."}
-    ]
+
+def _crispr_alerts(add, summary: dict) -> None:
+    fd = summary["frac_guides_detected"]
+    add(
+        _below(fd, *THRESH["frac_guides_detected"]),
+        "Guides missing from the library",
+        f"Only {fd or 0:.1%} of the {summary['guides_in_library'] or 0:,} guides in the library have "
+        f"any UMIs (expected ≥ {THRESH['frac_guides_detected'][0]:.0%}). Check library "
+        "complexity and guide capture.",
+    )
+    skew = summary["guide_skew_ratio"]
+    add(
+        _above(skew, THRESH["guide_skew_ratio"]),
+        "Uneven guide coverage",
+        f"The 90th/10th percentile ratio of UMIs per guide is {skew or 0:.1f} "
+        f"(expected ≤ {THRESH['guide_skew_ratio']}). A few guides may dominate the library.",
+    )

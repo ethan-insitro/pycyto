@@ -1,6 +1,8 @@
-"""Per-probe and run-level QC metrics for a ``cyto workflow gex`` run."""
+"""QC building blocks shared by every cyto workflow (GEX, CRISPR).
 
-import logging
+Workflow-specific metrics live in :mod:`pycyto.qc.gex` and :mod:`pycyto.qc.crispr`.
+"""
+
 import os
 from typing import Any
 
@@ -10,8 +12,6 @@ import polars as pl
 import scipy.sparse as sp
 
 from .parse import UNMAPPED_LABELS, load_json, read_barcode_stats
-
-logger = logging.getLogger("pycyto.qc")
 
 # log10 bin edges (width 0.05) for the histograms embedded in the report
 LOG_BINS = np.round(np.arange(0, 6.05, 0.05), 2)
@@ -45,6 +45,20 @@ def read_counts(path: str, chunk_rows: int = 10_000) -> tuple[pl.DataFrame, np.n
     return pl.DataFrame({"barcode": barcodes, "n_features": n_features}), totals, names
 
 
+def probe_basics(cyto_outdir: str, probe: str) -> tuple[pl.DataFrame, dict[str, Any], tuple[int, int]]:
+    """Per-barcode reads stats plus the metrics every workflow reports for a probe barcode.
+
+    Returns the ``barcode, n_umis, n_reads`` frame, the shared metrics and the
+    ``(corrected, total)`` UMI counts from ``stats/umi/<probe>.umi.json``.
+    """
+    stats = os.path.join(cyto_outdir, "stats")
+    df = read_barcode_stats(os.path.join(stats, "reads", f"{probe}.reads.tsv.zst"))
+    umi_stats = load_json(os.path.join(stats, "umi", f"{probe}.umi.json"))
+    mapped, umis = df["n_reads"].sum(), df["n_umis"].sum()
+    rec = {"probe": probe, "mapped_reads": mapped, "umis": umis}
+    return df, rec, (umi_stats["corrected"], umi_stats["total"])
+
+
 def rank_curve(umis_desc: np.ndarray, is_cell_desc: np.ndarray, n_points: int = 300) -> list:
     """Barcode-rank curve downsampled to ~n_points log-spaced ranks.
 
@@ -67,13 +81,17 @@ def log_hist(values: np.ndarray) -> list[int] | None:
     return counts.tolist()
 
 
-def unmapped_reasons(mapping: dict) -> list[dict[str, Any]]:
-    """Unmapped-read categories, largest first. A read can fail more than one check."""
+def unmapped_reasons(mapping: dict, feature: str = "gene probe") -> list[dict[str, Any]]:
+    """Unmapped-read categories, largest first. A read can fail more than one check.
+
+    ``feature`` names what ``missing_feature`` means for the workflow (gene probe, guide).
+    """
     unmapped = mapping["unmapped"]
+    labels = UNMAPPED_LABELS | {"missing_feature": f"No {feature} match"}
     rows = [
         {
             "reason": key,
-            "label": UNMAPPED_LABELS.get(key, key.replace("_", " ")),
+            "label": labels.get(key, key.replace("_", " ")),
             "reads": reads,
             "frac_of_reads": _div(reads, mapping["total_reads"]),
             "frac_of_unmapped": unmapped[f"{key}_frac"],
@@ -84,57 +102,8 @@ def unmapped_reasons(mapping: dict) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: -r["reads"])
 
 
-def process_probe(cyto_outdir: str, probe: str) -> dict[str, Any]:
-    """Metrics, plot data and per-cell arrays for one probe barcode.
-
-    Cells are exactly the barcodes in cyto's ``counts/<probe>.filt.h5ad``; probe barcodes
-    without that file have no cells. ``rec`` is the row shown in the report's probe table;
-    ``umi_counts`` is the ``(corrected, total)`` pair from ``stats/umi/<probe>.umi.json``,
-    only used by :func:`summarize`.
-    """
-    stats = os.path.join(cyto_outdir, "stats")
-    df = read_barcode_stats(os.path.join(stats, "reads", f"{probe}.reads.tsv.zst"))
-    umi = load_json(os.path.join(stats, "umi", f"{probe}.umi.json"))
-
-    filt = os.path.join(cyto_outdir, "counts", f"{probe}.filt.h5ad")
-    detected = None
-    if os.path.exists(filt):
-        cells, totals, _ = read_counts(filt)
-        detected = totals > 0
-        df = df.join(cells.rename({"n_features": "n_genes"}), on="barcode", how="left")
-        if (missing := cells.height - df["n_genes"].count()) > 0:
-            logger.warning(f"[{probe}] - {missing} filtered barcodes missing from reads stats")
-    else:
-        df = df.with_columns(n_genes=pl.lit(None, dtype=pl.Int64))
-    df = df.with_columns(is_cell=pl.col("n_genes").is_not_null()).sort("n_umis", descending=True)
-    in_cells = df.filter("is_cell")
-    cell_umis = in_cells["n_umis"].to_numpy()
-    cell_genes = in_cells["n_genes"].to_numpy()
-    mapped = df["n_reads"].sum()
-    return {
-        "rec": {
-            "probe": probe,
-            "mapped_reads": mapped,
-            "umis": df["n_umis"].sum(),
-            "cells": in_cells.height,
-            "reads_in_cells": in_cells["n_reads"].sum(),
-            "frac_reads_in_cells": _div(in_cells["n_reads"].sum(), mapped),
-            "median_umis_per_cell": in_cells["n_umis"].median(),
-        },
-        "plots": {
-            "curve": rank_curve(df["n_umis"].to_numpy(), df["is_cell"].to_numpy()),
-            "umi_hist": log_hist(cell_umis),
-            "gene_hist": log_hist(cell_genes),
-        },
-        "cell_umis": cell_umis,
-        "cell_genes": cell_genes,
-        "detected": detected,
-        "umi_counts": (umi["corrected"], umi["total"]),
-    }
-
-
-def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, Any]:
-    """Run-level metrics (the numbers behind the report's Summary tab)."""
+def run_summary(results: list[dict], meta: dict, cyto_outdir: str, feature: str) -> dict[str, Any]:
+    """Run-level metrics every workflow reports: reads, mapping, saturation."""
     recs = [r["rec"] for r in results]
     mapped = sum(r["mapped_reads"] for r in recs)
     umis = sum(r["umis"] for r in recs)
@@ -142,14 +111,7 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
     total_umis = sum(r["umi_counts"][1] for r in results)
     mapping = meta["mapping"]
     lib = {d["name"]: d for d in meta["library"]}
-    reasons = unmapped_reasons(mapping)
-
-    probes = pl.DataFrame(recs, infer_schema_length=None)
-    called = probes.filter(pl.col("cells") > 0)
-    n_cells = called["cells"].sum()
-    cell_umis = np.concatenate([r["cell_umis"] for r in results])
-    cell_genes = np.concatenate([r["cell_genes"] for r in results])
-    detected = [r["detected"] for r in results if r["detected"] is not None]
+    reasons = unmapped_reasons(mapping, feature)
     return {
         "cyto_outdir": os.path.abspath(cyto_outdir),
         "total_reads": mapping["total_reads"],
@@ -161,25 +123,4 @@ def summarize(results: list[dict], meta: dict, cyto_outdir: str) -> dict[str, An
         "probe_barcodes_with_reads": len(recs),
         "seq_saturation": 1 - umis / mapped if mapped else None,
         "umi_corrected_frac": _div(corrected, total_umis),
-        # cells (cyto's filtered h5ad)
-        "estimated_cells": n_cells,
-        "probe_barcodes_with_cells": called.height,
-        "n_probes_without_cells": probes.height - called.height,
-        "mean_reads_per_cell": _div(mapping["total_reads"], n_cells),
-        "mean_mapped_reads_per_cell": _div(mapping["mapped_reads"], n_cells),
-        "median_umis_per_cell": float(np.median(cell_umis)) if len(cell_umis) else None,
-        "median_genes_per_cell": float(np.median(cell_genes)) if len(cell_genes) else None,
-        "total_genes_detected": int(np.logical_or.reduce(detected).sum()) if detected else None,
-        "genes_in_reference": len(detected[0]) if detected else lib["gex"]["total_aggr"],
-        "frac_reads_in_cells": _div(probes["reads_in_cells"].sum(), mapped),
-        "background_probe_read_frac": _div(probes.filter(pl.col("cells") == 0)["mapped_reads"].sum(), mapped),
-        "cells_median_per_probe": called["cells"].median(),
-    }
-
-
-def pooled_plots(results: list[dict]) -> dict[str, Any]:
-    """Run-wide histograms: UMIs and genes per cell across all probe barcodes."""
-    return {
-        "umi_hist": log_hist(np.concatenate([r["cell_umis"] for r in results])),
-        "gene_hist": log_hist(np.concatenate([r["cell_genes"] for r in results])),
     }

@@ -15,7 +15,8 @@ class TestParsers:
         assert sorted(probes, key=probe_sort_key) == ["A-A02", "A-A10", "A-B01", "B-A01", "BC001", "BC002"]
 
 
-def test_detect_workflow(cyto_dir):
+def test_detect_workflow(cyto_dir, crispr_dir):
     assert detect_workflow(load_run_metadata(cyto_dir[0])) == "gex"
+    assert detect_workflow(load_run_metadata(crispr_dir[0])) == "crispr"
     with pytest.raises(ValueError):
         detect_workflow({"library": [{"name": "probe"}]})

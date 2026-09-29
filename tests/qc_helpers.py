@@ -17,6 +17,11 @@ PROBES = [
     ("C-D07", 40, 500, "csr", True),
 ]
 
+N_GUIDES = 30
+UNUSED_GUIDES = 6  # guides 0..5 never get UMIs -> 80% of the library detected
+# probe, n_barcodes
+CRISPR_PROBES = [("A-A01", 400), ("A-A02", 300), ("B-B05", 50)]
+
 
 def write_zst_tsv(path: str, df: pl.DataFrame) -> None:
     with pa.CompressedOutputStream(path, "zstd") as out:
