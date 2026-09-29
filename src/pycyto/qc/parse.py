@@ -9,7 +9,14 @@ from typing import Any
 
 import polars as pl
 
-from ..config import _is_flex_v2_barcode
+from ..config import FLEX_V1_BARCODES, FLEX_V2_BARCODES
+
+# Rank of each known barcode within its format, so `probe_sort_key` groups by prefix (V1)
+# or plate position (V2). FLEX_V1_BARCODES is generated prefix-interleaved
+# (BC001, CR001, AB001, BC002, …); sorting it gives the intuitive AB001..AB016,
+# BC001..BC016, CR001..CR016 grouping.
+_FLEX_V1_RANK = {bc: i for i, bc in enumerate(sorted(FLEX_V1_BARCODES))}
+_FLEX_V2_RANK = {bc: i for i, bc in enumerate(FLEX_V2_BARCODES)}
 
 
 def load_json(path: str) -> Any:
@@ -47,10 +54,14 @@ def detect_workflow(meta: dict[str, Any]) -> str:
 
 
 def probe_sort_key(probe: str) -> tuple:
-    """Flex-V2 barcodes by set/row/column, then everything else lexically."""
-    if _is_flex_v2_barcode(probe):
-        return (0, probe[0], probe[2], int(probe[3:]))
-    return (1, probe, "", 0)
+    """Flex-V2 barcodes in plate order, then Flex-V1 barcodes by prefix, then unknowns."""
+    v2_rank = _FLEX_V2_RANK.get(probe.replace("_", "-"))
+    if v2_rank is not None:
+        return (0, v2_rank)
+    v1_rank = _FLEX_V1_RANK.get(probe)
+    if v1_rank is not None:
+        return (1, v1_rank)
+    return (2, probe)
 
 
 def discover_probes(cyto_outdir: str) -> list[str]:
