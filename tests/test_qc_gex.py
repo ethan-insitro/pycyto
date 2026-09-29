@@ -4,6 +4,8 @@ import pytest
 
 from pycyto.qc import collect
 
+from .qc_helpers import N_GENES
+
 
 @pytest.fixture(scope="module")
 def payload(cyto_dir):
@@ -24,10 +26,7 @@ class TestCollect:
     def test_summary(self, payload, cyto_dir):
         _, truth = cyto_dir
         s = payload["summary"]
-        assert s["total_reads"] == 1_000_000
-        assert s["mapped_reads_frac"] == 0.6
-        assert s["probe_barcodes_with_reads"] == 4
-        assert s["probe_barcodes_in_library"] == 384
-        umis = sum(t["umis"] for t in truth.values())
-        mapped = sum(t["mapped_reads"] for t in truth.values())
-        assert s["seq_saturation"] == pytest.approx(1 - umis / mapped)
+        assert s["estimated_cells"] == sum(t["cells"] for t in truth.values())
+        assert s["probe_barcodes_with_cells"] == 3
+        assert s["mean_reads_per_cell"] == pytest.approx(1_000_000 / s["estimated_cells"])
+        assert s["total_genes_detected"] <= N_GENES
