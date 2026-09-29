@@ -24,6 +24,12 @@
         <div class="card"><h2>Sequencing</h2><table class="kv" id="kv-sequencing"></table></div>
         <div class="card"><h2>Cells</h2><table class="kv" id="kv-cells"></table></div>
       </div>
+      <div class="card">
+        <h2>Barcode rank plot</h2>
+        <div class="controls">Probe barcode <select id="rank-select"></select></div>
+        <div id="rank-plot"></div>
+        <div class="legend"><span><i class="swatch cell"></i>Cells</span><span><i class="swatch bg"></i>Background</span></div>
+      </div>
     </div>
   </section>
 </main>
@@ -31,6 +37,11 @@
 <footer id="footer"></footer>
 
 <script id="data" type="application/json">__DATA__</script>
+<!-- charts need an internet connection: d3 + Observable Plot from jsDelivr, pinned and integrity-checked -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
+        integrity="sha256-8glLv2FBs1lyLE/kVOtsSw8OQswQzHr5IfwVj864ZTk=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/dist/plot.umd.min.js"
+        integrity="sha256-Q1gIZGd0B3fdeI1rJ6lc69uu/dUMcwowYBFwc71xNMs=" crossorigin="anonymous"></script>
 <script>/*__JS__*/</script>
 <script>main();</script>
 </body>

@@ -23,9 +23,12 @@ class TestBuildReport:
         assert data["title"] == "unit-test"
         for placeholder in ("__DATA__", "__TITLE__", "/*__CSS__*/", "/*__JS__*/"):
             assert placeholder not in html
-        assert "--cell:" in html and "function drawSummary" in html  # CSS and JS inlined
+        assert "--cell:" in html and "function rankCurve" in html  # CSS and JS inlined
         assert "Estimated number of cells" in html  # the GEX cell metrics are drawn
         assert data["workflow"] == "gex"
+        # chart libraries come from a pinned, integrity-checked CDN URL
+        for lib in ("d3@7.9.0/dist/d3.min.js", "plot@0.6.17/dist/plot.umd.min.js"):
+            assert re.search(rf'<script src="[^"]*{re.escape(lib)}"\s+integrity="sha256-', html)
         assert not os.path.exists(str(tmp_path / "report_metrics_summary.csv"))
 
     def test_writes_csvs(self, cyto_dir, tmp_path):
