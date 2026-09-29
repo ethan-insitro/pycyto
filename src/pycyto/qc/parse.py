@@ -12,6 +12,15 @@ import polars as pl
 
 from ..config import _is_flex_v2_barcode
 
+# unmapped-read categories in ``stats/mapping_map.json`` -> human-readable labels
+UNMAPPED_LABELS = {
+    "missing_feature": "No gene probe match",
+    "missing_probe": "No probe barcode match",
+    "failed_umi_qual": "UMI failed quality",
+    "missing_whitelist": "Cell barcode not in whitelist",
+    "umi_truncated": "UMI truncated",
+}
+
 def load_json(path: str, default: Any) -> Any:
     try:
         with open(path) as fh:

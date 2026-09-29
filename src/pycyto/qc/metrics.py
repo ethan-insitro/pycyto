@@ -1,12 +1,24 @@
-"""QC building blocks shared by every cyto workflow."""
+"""QC building blocks shared by every cyto workflow.
+
+Workflow-specific metrics live in :mod:`pycyto.qc.gex`.
+"""
+
+import os
+from typing import Any
 
 import anndata as ad
 import numpy as np
 import polars as pl
 import scipy.sparse as sp
 
+from .parse import UNMAPPED_LABELS, load_json, read_barcode_stats
+
 # log10 bin edges (width 0.05) for the histograms embedded in the report
 LOG_BINS = np.round(np.arange(0, 6.05, 0.05), 2)
+
+
+def _div(a, b) -> float | None:
+    return a / b if a is not None and b else None
 
 
 def read_counts(path: str, chunk_rows: int = 10_000) -> tuple[pl.DataFrame, np.ndarray, list[str]]:
@@ -33,6 +45,20 @@ def read_counts(path: str, chunk_rows: int = 10_000) -> tuple[pl.DataFrame, np.n
     return pl.DataFrame({"barcode": barcodes, "n_features": n_features}), totals, names
 
 
+def probe_basics(cyto_outdir: str, probe: str) -> tuple[pl.DataFrame, dict[str, Any], tuple[int, int]]:
+    """Per-barcode reads stats plus the metrics every workflow reports for a probe barcode.
+
+    Returns the ``barcode, n_umis, n_reads`` frame, the shared metrics and the
+    ``(corrected, total)`` UMI counts from ``stats/umi/<probe>.umi.json``.
+    """
+    stats = os.path.join(cyto_outdir, "stats")
+    df = read_barcode_stats(os.path.join(stats, "reads", f"{probe}.reads.tsv.zst"))
+    umi_stats = load_json(os.path.join(stats, "umi", f"{probe}.umi.json"), {})
+    mapped, umis = df["n_reads"].sum(), df["n_umis"].sum()
+    rec = {"probe": probe, "mapped_reads": mapped, "umis": umis}
+    return df, rec, (umi_stats.get("corrected", 0), umi_stats.get("total", 0))
+
+
 def rank_curve(umis_desc: np.ndarray, is_cell_desc: np.ndarray, n_points: int = 300) -> list:
     """Barcode-rank curve downsampled to ~n_points log-spaced ranks.
 
@@ -53,3 +79,48 @@ def log_hist(values: np.ndarray) -> list[int] | None:
         return None
     counts, _ = np.histogram(np.log10(np.maximum(values, 1)), bins=np.append(LOG_BINS, 6.05))
     return counts.tolist()
+
+
+def unmapped_reasons(mapping: dict, feature: str = "gene probe") -> list[dict[str, Any]]:
+    """Unmapped-read categories, largest first. A read can fail more than one check.
+
+    ``feature`` names what ``missing_feature`` means for the workflow (gene probe, guide).
+    """
+    unmapped = mapping.get("unmapped", {})
+    labels = UNMAPPED_LABELS | {"missing_feature": f"No {feature} match"}
+    rows = [
+        {
+            "reason": key,
+            "label": labels.get(key, key.replace("_", " ")),
+            "reads": reads,
+            "frac_of_reads": _div(reads, mapping.get("total_reads")),
+            "frac_of_unmapped": unmapped.get(f"{key}_frac"),
+        }
+        for key, reads in unmapped.items()
+        if not key.endswith("_frac")
+    ]
+    return sorted(rows, key=lambda r: -r["reads"])
+
+
+def run_summary(results: list[dict], meta: dict, cyto_outdir: str, feature: str) -> dict[str, Any]:
+    """Run-level metrics every workflow reports: reads, mapping, saturation."""
+    probes = pl.DataFrame([r["rec"] for r in results], infer_schema_length=None)
+    mapping = meta["mapping"]
+    lib = {d.get("name"): d for d in meta["library"]}
+    reasons = unmapped_reasons(mapping, feature)
+    corrected, total_umis = np.sum([r["umi_counts"] for r in results], axis=0)
+    probe_mapped = probes["mapped_reads"].sum()
+    return {
+        "cyto_outdir": os.path.abspath(cyto_outdir),
+        "total_reads": mapping.get("total_reads"),
+        "mapped_reads": mapping.get("mapped_reads"),
+        "mapped_reads_frac": mapping.get("mapped_reads_frac"),
+        "top_unmapped_reason": reasons[0]["label"] if reasons else None,
+        "failed_umi_qual_of_total": _div(
+            mapping.get("unmapped", {}).get("failed_umi_qual"), mapping.get("total_reads")
+        ),
+        "probe_barcodes_in_library": lib.get("probe", {}).get("total_elem"),
+        "probe_barcodes_with_reads": probes.height,
+        "seq_saturation": 1 - probes["umis"].sum() / probe_mapped if probe_mapped else None,
+        "umi_corrected_frac": _div(float(corrected), float(total_umis)),
+    }
